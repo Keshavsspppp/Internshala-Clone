@@ -27,7 +27,7 @@ const index = () => {
     try {
       setisloading(true);
       const res = await axios.post(
-        "http://localhost:5000/api/admin/adminlogin",
+        "https://internshala-clone-y2p2.onrender.com/api/admin/adminlogin",
         formadata
       );
       toast.success("logged in successfuly");
