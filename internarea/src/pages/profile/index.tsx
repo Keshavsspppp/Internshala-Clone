@@ -70,12 +70,19 @@ const index = () => {
               </div>
 
               {/* Actions */}
-              <div className="flex justify-center pt-4">
+              <div className="flex flex-wrap justify-center gap-4 pt-4">
                 <Link
                   href="/userapplication"
                   className="inline-flex items-center px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors duration-200"
                 >
                   View Applications
+                  <ExternalLink className="ml-2 h-4 w-4" />
+                </Link>
+                <Link
+                  href="/public-space"
+                  className="inline-flex items-center px-6 py-3 bg-white text-blue-600 border border-blue-200 font-medium rounded-lg hover:bg-blue-50 transition-colors duration-200"
+                >
+                  Open Public Space
                   <ExternalLink className="ml-2 h-4 w-4" />
                 </Link>
               </div>

@@ -1,6 +1,7 @@
 import axios from "axios";
 import { User, Lock } from "lucide-react";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { useRouter } from "next/router";
 import React, { useState } from "react";
 import { toast } from "react-toastify";
 
@@ -27,7 +28,7 @@ const index = () => {
     try {
       setisloading(true);
       const res = await axios.post(
-        "https://internshala-clone-y2p2.onrender.com/api/admin/adminlogin",
+        `${process.env.NEXT_PUBLIC_API_URL}/api/admin/adminlogin`,
         formadata
       );
       toast.success("logged in successfuly");
@@ -97,6 +98,14 @@ const index = () => {
                   placeholder="Enter your password"
                 />
               </div>
+            </div>
+            <div className="flex justify-end">
+              <Link
+                href="/forgot-password"
+                className="text-sm font-medium text-blue-600 hover:text-blue-700"
+              >
+                Forgot password?
+              </Link>
             </div>
             <div>
               <button

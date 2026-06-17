@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import { toast } from "react-toastify";
 import axios from "axios";
-import { useRouter } from "next/navigation";
+import { useRouter } from "next/router";
 const index = () => {
   const [formData, setFormData] = useState({
     title: "",
@@ -47,7 +47,7 @@ const index = () => {
     }
     try {
       setisloading(true);
-      const res = await axios.post("https://internshala-clone-y2p2.onrender.com/api/job", formData);
+      const res = await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/api/job`, formData);
       toast.success("job posted successfuly");
       router.push("/adminpanel");
     } catch (error) {
