@@ -2,50 +2,22 @@ import React, { useEffect, useState } from "react";
 import {
   Building2,
   Calendar,
-  CheckCircle2,
-  Mail,
   Tag,
   User,
-  XCircle,
+  Search,
 } from "lucide-react";
 import Link from "next/link";
 import axios from "axios";
 import { selectuser } from "@/Feature/Userslice";
 import { useSelector } from "react-redux";
-const Applications = [
-  {
-    _id: "1",
-    company: "Tech Corp",
-    category: "Software",
-    user: { name: "John Doe", email: "john@example.com" },
-    createAt: "2024-03-10T12:00:00Z",
-    status: "approved",
-  },
-  {
-    _id: "2",
-    company: "Health Solutions",
-    category: "Healthcare",
-    user: { name: "Rahul", email: "jane@example.com" },
-    createAt: "2024-03-08T10:30:00Z",
-    status: "pending",
-  },
-  {
-    _id: "3",
-    company: "EduLearn",
-    category: "Education",
-    user: { name: "Rahul", email: "alice@example.com" },
-    createAt: "2024-03-05T09:15:00Z",
-    status: "rejected",
-  },
-];
-const getStatusColor = (status: any) => {
-  switch (status.toLowerCase()) {
-    case "approved":
-      return "bg-green-100 text-green-800";
+const getStatusClasses = (status: any) => {
+  switch ((status || "").toLowerCase()) {
+    case "accepted":
+      return "bg-emerald-50 text-emerald-700 border border-emerald-100/50";
     case "rejected":
-      return "bg-red-100 text-red-800";
+      return "bg-rose-50 text-rose-700 border border-rose-100/50";
     default:
-      return "bg-yellow-100 text-yellow-800";
+      return "bg-amber-50 text-amber-700 border border-amber-100/50";
   }
 };
 const index = () => {
@@ -95,166 +67,193 @@ const index = () => {
     return searchmatch && application.status.toLowerCase() === filter;
   });
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="bg-white rounded-lg shadow-sm">
+    <div className="min-h-screen bg-slate-50/30 py-12 font-sans">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 animate-slide-up">
+        <div className="bg-white border border-slate-100 rounded-3xl shadow-sm overflow-hidden">
           {/* Header */}
-          <div className="border-b border-gray-200 px-6 py-4">
-            <h1 className="text-2xl font-bold text-gray-900">My Applications</h1>
-            <p className="mt-1 text-sm text-gray-500">
-              Track and manage your job and intenrhsip applications
+          <div className="border-b border-slate-100 px-6 py-6 sm:px-8">
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-800 font-heading tracking-tight">
+              My Applications
+            </h1>
+            <p className="mt-1 text-xs sm:text-sm text-slate-500 font-medium">
+              Track and manage your job and internship applications
             </p>
           </div>
 
           {/* Filters and Search */}
-          <div className="p-6 border-b border-gray-200">
-            <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
+          <div className="p-6 border-b border-slate-100 bg-slate-50/20">
+            <div className="flex flex-col md:flex-row justify-between items-center gap-4">
               <div className="flex-1 w-full">
                 <div className="relative">
                   <input
                     type="text"
                     value={searchTerm}
                     onChange={(e) => setsearchTerm(e.target.value)}
-                    placeholder="Search by company, category, or applicant..."
-                    className="text-black w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Search by company or category..."
+                    className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200 text-xs font-semibold"
                   />
-                  <Mail className="absolute top-3 left-3 text-gray-400" />
+                  <Search className="absolute top-3 left-3.5 h-4 w-4 text-slate-400" />
                 </div>
               </div>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setFilter("all")}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium ${
-                    filter === "all"
-                      ? "bg-blue-100 text-blue-800"
-                      : "bg-gray-100 text-gray-800"
-                  }`}
-                >
-                  All
-                </button>
-                <button
-                  onClick={() => setFilter("pending")}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium ${
-                    filter === "pending"
-                      ? "bg-yellow-100 text-yellow-800"
-                      : "bg-gray-100 text-gray-800"
-                  }`}
-                >
-                  Pending
-                </button>
-                <button
-                  onClick={() => setFilter("approved")}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium ${
-                    filter === "approved"
-                      ? "bg-green-100 text-green-800"
-                      : "bg-gray-100 text-gray-800"
-                  }`}
-                >
-                  Approved
-                </button>
-                <button
-                  onClick={() => setFilter("rejected")}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium ${
-                    filter === "rejected"
-                      ? "bg-red-100 text-red-800"
-                      : "bg-gray-100 text-gray-800"
-                  }`}
-                >
-                  Rejected
-                </button>
+              
+              <div className="flex flex-wrap gap-2.5 items-center w-full md:w-auto">
+                {["all", "pending", "accepted", "rejected"].map((status) => (
+                  <button
+                    key={status}
+                    onClick={() => setFilter(status)}
+                    className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all duration-200 ${
+                      filter === status
+                        ? status === "accepted"
+                          ? "bg-emerald-50 text-emerald-600 border border-emerald-100"
+                          : status === "rejected"
+                          ? "bg-rose-50 text-rose-600 border border-rose-100"
+                          : status === "pending"
+                          ? "bg-amber-50 text-amber-600 border border-amber-100"
+                          : "bg-blue-50 text-blue-600 border border-blue-100"
+                        : "bg-white text-slate-500 border border-slate-200 hover:bg-slate-50 hover:text-slate-800 shadow-sm"
+                    }`}
+                  >
+                    {status}
+                  </button>
+                ))}
               </div>
             </div>
           </div>
+
           {/* Applications List */}
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th
-                    scope="col"
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                  >
-                    Company & Category
-                  </th>
-                  <th
-                    scope="col"
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                  >
-                    Applicant
-                  </th>
-                  <th
-                    scope="col"
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                  >
-                    Applied Date
-                  </th>
-                  <th
-                    scope="col"
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                  >
-                    Status
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredapplications.map((application:any) => (
-                  <tr key={application._id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <div className="flex-shrink-0 h-10 w-10 flex items-center justify-center bg-blue-100 rounded-full">
-                          <Building2 className="h-5 w-5 text-blue-600" />
-                        </div>
-                        <div className="ml-4">
-                          <div className="text-sm font-medium text-gray-900">
-                            {application.company}
+          {filteredapplications.length > 0 ? (
+            <>
+              {/* Desktop Table View */}
+              <div className="hidden md:block overflow-x-auto">
+                <table className="min-w-full divide-y divide-slate-100">
+                  <thead className="bg-slate-50/50">
+                    <tr>
+                      <th
+                        scope="col"
+                        className="px-6 py-4 text-left text-[10px] font-bold text-slate-400 uppercase tracking-wider"
+                      >
+                        Company & Category
+                      </th>
+                      <th
+                        scope="col"
+                        className="px-6 py-4 text-left text-[10px] font-bold text-slate-400 uppercase tracking-wider"
+                      >
+                        Applicant
+                      </th>
+                      <th
+                        scope="col"
+                        className="px-6 py-4 text-left text-[10px] font-bold text-slate-400 uppercase tracking-wider"
+                      >
+                        Applied Date
+                      </th>
+                      <th
+                        scope="col"
+                        className="px-6 py-4 text-left text-[10px] font-bold text-slate-400 uppercase tracking-wider"
+                      >
+                        Status
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 bg-white">
+                    {filteredapplications.map((application: any) => (
+                      <tr key={application._id} className="hover:bg-slate-50/40 transition-colors">
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center">
+                            <div className="flex-shrink-0 h-10 w-10 flex items-center justify-center bg-blue-50 rounded-xl">
+                              <Building2 className="h-5 w-5 text-blue-600" />
+                            </div>
+                            <div className="ml-4">
+                              <div className="text-sm font-bold text-slate-800">
+                                {application.company}
+                              </div>
+                              <div className="flex items-center text-xs text-slate-500 font-semibold mt-0.5">
+                                <Tag className="h-3.5 w-3.5 mr-1 text-slate-400" />
+                                {application.category}
+                              </div>
+                            </div>
                           </div>
-                          <div className="flex items-center text-sm text-gray-500">
-                            <Tag className="h-4 w-4 mr-1" />
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center">
+                            <div className="flex-shrink-0 h-10 w-10 flex items-center justify-center bg-slate-50 rounded-xl">
+                              <User className="h-5 w-5 text-slate-600" />
+                            </div>
+                            <div className="ml-4">
+                              <div className="text-sm font-bold text-slate-800">
+                                {application.user.name}
+                              </div>
+                              <div className="text-xs text-slate-450 font-medium">
+                                {application.user.email}
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center text-xs font-semibold text-slate-600">
+                            <Calendar className="h-3.5 w-3.5 mr-1.5 text-slate-400" />
+                            {new Date(application.createdAt).toISOString().split("T")[0]}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span
+                            className={`px-3 py-1.5 inline-flex text-[10px] font-bold uppercase tracking-wider rounded-lg border ${getStatusClasses(
+                              application.status
+                            )}`}
+                          >
+                            {application.status}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Mobile Card List View */}
+              <div className="block md:hidden divide-y divide-slate-100 bg-white">
+                {filteredapplications.map((application: any) => (
+                  <div key={application._id} className="p-5 space-y-4 hover:bg-slate-50/30 transition-colors">
+                    <div className="flex justify-between items-start">
+                      <div className="flex items-center space-x-3">
+                        <div className="p-2.5 bg-blue-50 text-blue-600 rounded-xl">
+                          <Building2 className="h-5 w-5" />
+                        </div>
+                        <div>
+                          <h3 className="font-bold text-slate-800 text-sm leading-snug">{application.company}</h3>
+                          <div className="flex items-center text-xs text-slate-500 font-semibold mt-0.5">
+                            <Tag className="h-3.5 w-3.5 mr-1 text-slate-400" />
                             {application.category}
                           </div>
                         </div>
                       </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <div className="flex-shrink-0 h-10 w-10 flex items-center justify-center bg-gray-100 rounded-full">
-                          <User className="h-5 w-5 text-gray-600" />
-                        </div>
-                        <div className="ml-4">
-                          <div className="text-sm font-medium text-gray-900">
-                            {application.user.name}
-                          </div>
-                          <div className="text-sm text-gray-500">
-                            {application.user.email}
-                          </div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center text-sm text-gray-500">
-                        <Calendar className="h-4 w-4 mr-1" />
-                        {
-                          new Date(application.createdAt)
-                            .toISOString()
-                            .split("T")[0]
-                        }
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span
-                        className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(
-                          application.status
-                        )}`}
-                      >
+                      <span className={`px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider rounded-lg border ${getStatusClasses(application.status)}`}>
                         {application.status}
                       </span>
-                    </td>
-                  
-                  </tr>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4 pt-3 border-t border-slate-55">
+                      <div className="space-y-1">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Applicant</span>
+                        <div className="text-xs font-bold text-slate-700 truncate">{application.user.name}</div>
+                        <div className="text-[10px] text-slate-450 font-medium truncate">{application.user.email}</div>
+                      </div>
+                      <div className="space-y-1">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Applied On</span>
+                        <div className="flex items-center text-xs font-semibold text-slate-600 mt-0.5">
+                          <Calendar className="h-3.5 w-3.5 mr-1 text-slate-400" />
+                          {new Date(application.createdAt).toISOString().split("T")[0]}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 ))}
-              </tbody>
-            </table>
-          </div>
+              </div>
+            </>
+          ) : (
+            <div className="p-12 text-center text-slate-500 text-sm bg-white font-medium">
+              No applications found matching your criteria.
+            </div>
+          )}
         </div>
       </div>
     </div>

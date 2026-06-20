@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { auth, provider } from "../firebase/firebase";
-import { Search } from "lucide-react";
+import { Search, Menu, X } from "lucide-react";
 import { signInWithPopup, signOut } from "firebase/auth";
 import { toast } from "react-toastify";
 import { useDispatch, useSelector } from "react-redux";
@@ -27,6 +27,7 @@ const Navbar = () => {
     useState<PendingOtpSession | null>(null);
   const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
   const [isSigningIn, setIsSigningIn] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     setPendingOtpSession(getPendingOtpSession());
@@ -342,8 +343,70 @@ const Navbar = () => {
                 </div>
               )}
             </div>
+
+            {/* Mobile Menu Button */}
+            <div className="flex items-center md:hidden ml-1">
+              <button
+                onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                className="inline-flex items-center justify-center p-2 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-slate-100 focus:outline-none transition-colors"
+                aria-expanded={isMobileMenuOpen}
+              >
+                {isMobileMenuOpen ? (
+                  <X className="block h-5 w-5" aria-hidden="true" />
+                ) : (
+                  <Menu className="block h-5 w-5" aria-hidden="true" />
+                )}
+              </button>
+            </div>
           </div>
         </div>
+
+        {/* Mobile Menu Panel */}
+        {isMobileMenuOpen && (
+          <div className="md:hidden bg-white border-t border-slate-100">
+            <div className="px-4 pt-2 pb-6 space-y-4">
+              <Link 
+                href={"/internship"}
+                onClick={() => setIsMobileMenuOpen(false)}
+                className={`block px-3 py-2.5 rounded-xl text-base font-semibold transition-colors ${
+                  router.pathname === "/internship" ? "bg-blue-50 text-blue-600 font-bold" : "text-slate-600 hover:bg-slate-50"
+                }`}
+              >
+                Internships
+              </Link>
+              <Link 
+                href={"/job"}
+                onClick={() => setIsMobileMenuOpen(false)}
+                className={`block px-3 py-2.5 rounded-xl text-base font-semibold transition-colors ${
+                  router.pathname === "/job" ? "bg-blue-50 text-blue-600 font-bold" : "text-slate-600 hover:bg-slate-50"
+                }`}
+              >
+                Jobs
+              </Link>
+              <Link 
+                href={"/public-space"}
+                onClick={() => setIsMobileMenuOpen(false)}
+                className={`block px-3 py-2.5 rounded-xl text-base font-semibold transition-colors ${
+                  router.pathname === "/public-space" ? "bg-blue-50 text-blue-600 font-bold" : "text-slate-600 hover:bg-slate-50"
+                }`}
+              >
+                Public Space
+              </Link>
+              
+              {/* Search in mobile menu */}
+              <div className="pt-2">
+                <div className="flex items-center bg-slate-50 border border-slate-200 rounded-full px-3 py-2.5 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-100 transition-all duration-200">
+                  <Search size={16} className="text-slate-400" />
+                  <input
+                    type="text"
+                    placeholder="Search opportunities..."
+                    className="ml-2 bg-transparent text-slate-800 focus:outline-none text-sm w-full"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </nav>
     </div>
   );

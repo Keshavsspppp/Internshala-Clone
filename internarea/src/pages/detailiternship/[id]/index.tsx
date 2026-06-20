@@ -238,7 +238,10 @@ const index = () => {
                     Perks
                   </h3>
                   <div className="flex flex-wrap gap-2">
-                    {internshipData.perks.split(",").map((perk: string, idx: number) => (
+                    {(Array.isArray(internshipData.perks)
+                      ? internshipData.perks
+                      : String(internshipData.perks).split(",")
+                    ).map((perk: string, idx: number) => (
                       <span key={idx} className="px-3 py-1 bg-white border border-slate-200 text-slate-600 rounded-lg text-xs font-medium shadow-sm">
                         {perk.trim()}
                       </span>
@@ -270,7 +273,13 @@ const index = () => {
           {/* Apply Button Footer */}
           <div className="p-8 bg-slate-50/50 flex justify-center">
             <button
-              onClick={() => setIsModalOpen(true)}
+              onClick={() => {
+                if (!user) {
+                  toast.error("Please sign in to apply for this internship.");
+                  return;
+                }
+                setIsModalOpen(true);
+              }}
               className="px-10 py-3.5 bg-blue-600 text-white text-sm font-bold rounded-2xl shadow-lg shadow-blue-150 hover:bg-blue-700 hover:shadow-xl hover:shadow-blue-200 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200"
             >
               Apply Now

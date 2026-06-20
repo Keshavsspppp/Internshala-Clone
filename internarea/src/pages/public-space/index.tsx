@@ -1,6 +1,6 @@
 import axios from "axios";
 import Link from "next/link";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Globe,
   Heart,
@@ -9,11 +9,20 @@ import {
   Share2,
   UserPlus,
   Users,
-  Video,
+  X,
+  Upload,
+  CheckCircle2,
+  Loader2,
 } from "lucide-react";
 import { useSelector } from "react-redux";
 import { selectuser } from "@/Feature/Userslice";
 import { toast } from "react-toastify";
+import { storage } from "@/firebase/firebase";
+import {
+  ref,
+  uploadBytesResumable,
+  getDownloadURL,
+} from "firebase/storage";
 
 type CommunityFriend = {
   userKey: string;
@@ -66,25 +75,52 @@ type CommunityPost = {
   };
 };
 
+type UploadingFile = {
+  id: string;
+  file: File;
+  type: "image" | "video";
+  progress: number;
+  status: "uploading" | "done" | "error";
+  url: string;
+  name: string;
+};
+
+const AvatarPlaceholder = ({
+  name,
+  size = "md",
+}: {
+  name: string;
+  size?: "sm" | "md" | "lg";
+}) => {
+  const sizes = {
+    sm: "h-8 w-8 text-xs",
+    md: "h-11 w-11 text-sm",
+    lg: "h-14 w-14 text-base",
+  };
+  return (
+    <div
+      className={`flex-shrink-0 flex items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 font-bold text-white border-2 border-white shadow-sm ${sizes[size]}`}
+    >
+      {name?.charAt(0)?.toUpperCase() || "?"}
+    </div>
+  );
+};
+
 const PublicSpacePage = () => {
   const user = useSelector(selectuser);
   const [profile, setProfile] = useState<CommunityProfile | null>(null);
   const [feed, setFeed] = useState<CommunityPost[]>([]);
   const [loading, setLoading] = useState(true);
   const [composerText, setComposerText] = useState("");
-  const [mediaItems, setMediaItems] = useState<
-    Array<{ type: "image" | "video"; url: string; name: string }>
-  >([]);
+  const [uploadingFiles, setUploadingFiles] = useState<UploadingFile[]>([]);
   const [friendForm, setFriendForm] = useState({ name: "", email: "" });
   const [commentInputs, setCommentInputs] = useState<Record<string, string>>({});
   const [isPosting, setIsPosting] = useState(false);
   const [isAddingFriend, setIsAddingFriend] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const communityUser = useMemo(() => {
-    if (!user?.email) {
-      return null;
-    }
-
+    if (!user?.email) return null;
     return {
       uid: user.uid,
       name: user.name || "Community Member",
@@ -98,18 +134,16 @@ const PublicSpacePage = () => {
       setLoading(false);
       return;
     }
-
     try {
       setLoading(true);
-      const [profileResponse, feedResponse] = await Promise.all([
+      const [profileRes, feedRes] = await Promise.all([
         axios.post(`${process.env.NEXT_PUBLIC_API_URL}/api/community/profile`, {
           user: communityUser,
         }),
         axios.get(`${process.env.NEXT_PUBLIC_API_URL}/api/community/feed`),
       ]);
-
-      setProfile(profileResponse.data);
-      setFeed(feedResponse.data);
+      setProfile(profileRes.data);
+      setFeed(feedRes.data);
     } catch (error) {
       console.error(error);
       toast.error("Unable to load the Public Space right now.");
@@ -122,65 +156,101 @@ const PublicSpacePage = () => {
     loadCommunityData();
   }, [communityUser?.email]);
 
-  const handleMediaUpload = async (
-    event: React.ChangeEvent<HTMLInputElement>
-  ) => {
+  // ── Firebase Storage Upload ──────────────────────────────────────────────
+  const handleMediaUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files || []);
+    if (!files.length) return;
 
-    if (!files.length) {
-      return;
-    }
+    files.forEach((file) => {
+      const id = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      const isVideo = file.type.startsWith("video");
+      const uploadItem: UploadingFile = {
+        id,
+        file,
+        type: isVideo ? "video" : "image",
+        progress: 0,
+        status: "uploading",
+        url: "",
+        name: file.name,
+      };
 
-    const convertedFiles = await Promise.all(
-      files.map(
-        (file) =>
-          new Promise<{ type: "image" | "video"; url: string; name: string }>(
-            (resolve, reject) => {
-              const reader = new FileReader();
-              reader.onload = () => {
-                resolve({
-                  type: file.type.startsWith("video") ? "video" : "image",
-                  url: String(reader.result || ""),
-                  name: file.name,
-                });
-              };
-              reader.onerror = () => reject(reader.error);
-              reader.readAsDataURL(file);
-            }
-          )
-      )
-    );
+      setUploadingFiles((prev) => [...prev, uploadItem]);
 
-    setMediaItems((previous) => [...previous, ...convertedFiles]);
-    event.target.value = "";
+      // Push to Firebase Storage
+      const storagePath = `public-space/${communityUser?.uid || "anon"}/${id}-${file.name}`;
+      const storageRef = ref(storage, storagePath);
+      const task = uploadBytesResumable(storageRef, file);
+
+      task.on(
+        "state_changed",
+        (snapshot) => {
+          const pct = Math.round(
+            (snapshot.bytesTransferred / snapshot.totalBytes) * 100
+          );
+          setUploadingFiles((prev) =>
+            prev.map((u) => (u.id === id ? { ...u, progress: pct } : u))
+          );
+        },
+        () => {
+          setUploadingFiles((prev) =>
+            prev.map((u) =>
+              u.id === id ? { ...u, status: "error", progress: 0 } : u
+            )
+          );
+          toast.error(`Failed to upload ${file.name}`);
+        },
+        async () => {
+          const downloadUrl = await getDownloadURL(task.snapshot.ref);
+          setUploadingFiles((prev) =>
+            prev.map((u) =>
+              u.id === id
+                ? { ...u, status: "done", url: downloadUrl, progress: 100 }
+                : u
+            )
+          );
+        }
+      );
+    });
+
+    // Reset file input
+    if (fileInputRef.current) fileInputRef.current.value = "";
   };
+
+  const removeUploadingFile = (id: string) => {
+    setUploadingFiles((prev) => prev.filter((u) => u.id !== id));
+  };
+
+  const allUploadsReady = uploadingFiles.every((u) => u.status === "done" || u.status === "error");
+  const hasMedia = uploadingFiles.some((u) => u.status === "done");
 
   const handleCreatePost = async () => {
     if (!communityUser) {
       toast.error("Please sign in before posting to Public Space.");
       return;
     }
+    if (!allUploadsReady) {
+      toast.info("Please wait for all uploads to complete.");
+      return;
+    }
 
     try {
       setIsPosting(true);
+      const media = uploadingFiles
+        .filter((u) => u.status === "done")
+        .map((u) => ({ type: u.type, url: u.url, name: u.name }));
+
       const response = await axios.post(
         `${process.env.NEXT_PUBLIC_API_URL}/api/community/posts`,
-        {
-          user: communityUser,
-          text: composerText,
-          media: mediaItems,
-        }
+        { user: communityUser, text: composerText, media }
       );
 
-      setFeed((previous) => [response.data.post, ...previous]);
+      setFeed((prev) => [response.data.post, ...prev]);
       setProfile(response.data.profile);
       setComposerText("");
-      setMediaItems([]);
+      setUploadingFiles([]);
       toast.success(response.data.message || "Post created successfully.");
     } catch (error: any) {
-      toast.error(
-        error?.response?.data?.message || "Unable to create your post."
-      );
+      toast.error(error?.response?.data?.message || "Unable to create your post.");
     } finally {
       setIsPosting(false);
     }
@@ -188,37 +258,28 @@ const PublicSpacePage = () => {
 
   const handleAddFriend = async (event: React.FormEvent) => {
     event.preventDefault();
-
     if (!communityUser) {
       toast.error("Please sign in before adding friends.");
       return;
     }
-
     if (!friendForm.name.trim() || !friendForm.email.trim()) {
       toast.error("Friend name and email are required.");
       return;
     }
-
     try {
       setIsAddingFriend(true);
       const response = await axios.post(
         `${process.env.NEXT_PUBLIC_API_URL}/api/community/friends`,
         {
           user: communityUser,
-          friend: {
-            name: friendForm.name.trim(),
-            email: friendForm.email.trim(),
-          },
+          friend: { name: friendForm.name.trim(), email: friendForm.email.trim() },
         }
       );
-
       setProfile(response.data.profile);
       setFriendForm({ name: "", email: "" });
       toast.success(response.data.message || "Friend added successfully.");
     } catch (error: any) {
-      toast.error(
-        error?.response?.data?.message || "Unable to add this friend."
-      );
+      toast.error(error?.response?.data?.message || "Unable to add this friend.");
     } finally {
       setIsAddingFriend(false);
     }
@@ -229,15 +290,13 @@ const PublicSpacePage = () => {
       toast.error("Please sign in before liking a post.");
       return;
     }
-
     try {
       const response = await axios.post(
         `${process.env.NEXT_PUBLIC_API_URL}/api/community/posts/${postId}/like`,
         { user: communityUser }
       );
-
-      setFeed((previous) =>
-        previous.map((post) => (post._id === postId ? response.data.post : post))
+      setFeed((prev) =>
+        prev.map((post) => (post._id === postId ? response.data.post : post))
       );
     } catch (error: any) {
       toast.error(error?.response?.data?.message || "Unable to like this post.");
@@ -249,31 +308,22 @@ const PublicSpacePage = () => {
       toast.error("Please sign in before commenting.");
       return;
     }
-
     const text = commentInputs[postId]?.trim();
-
     if (!text) {
       toast.error("Write a comment before posting it.");
       return;
     }
-
     try {
       const response = await axios.post(
         `${process.env.NEXT_PUBLIC_API_URL}/api/community/posts/${postId}/comment`,
-        {
-          user: communityUser,
-          text,
-        }
+        { user: communityUser, text }
       );
-
-      setFeed((previous) =>
-        previous.map((post) => (post._id === postId ? response.data.post : post))
+      setFeed((prev) =>
+        prev.map((post) => (post._id === postId ? response.data.post : post))
       );
-      setCommentInputs((previous) => ({ ...previous, [postId]: "" }));
+      setCommentInputs((prev) => ({ ...prev, [postId]: "" }));
     } catch (error: any) {
-      toast.error(
-        error?.response?.data?.message || "Unable to add your comment."
-      );
+      toast.error(error?.response?.data?.message || "Unable to add your comment.");
     }
   };
 
@@ -282,17 +332,12 @@ const PublicSpacePage = () => {
       const response = await axios.post(
         `${process.env.NEXT_PUBLIC_API_URL}/api/community/posts/${postId}/share`
       );
-
-      setFeed((previous) =>
-        previous.map((post) => (post._id === postId ? response.data.post : post))
+      setFeed((prev) =>
+        prev.map((post) => (post._id === postId ? response.data.post : post))
       );
-
       if (typeof navigator !== "undefined" && navigator.clipboard) {
-        await navigator.clipboard.writeText(
-          `${window.location.origin}/public-space`
-        );
+        await navigator.clipboard.writeText(`${window.location.origin}/public-space`);
       }
-
       toast.success("Post shared. Public Space link copied.");
     } catch (error: any) {
       toast.error(error?.response?.data?.message || "Unable to share this post.");
@@ -300,39 +345,37 @@ const PublicSpacePage = () => {
   };
 
   const canPost = useMemo(() => {
-    if (!profile) {
-      return false;
-    }
-
-    if (profile.dailyPostLimit === "unlimited") {
-      return true;
-    }
-
+    if (!profile) return false;
+    if (profile.dailyPostLimit === "unlimited") return true;
     return (profile.remainingPosts ?? 0) > 0;
   }, [profile]);
 
+  // ── Unauthenticated State ─────────────────────────────────────────────────
   if (!communityUser) {
     return (
-      <div className="min-h-screen bg-gray-50 px-4 py-16">
-        <div className="mx-auto max-w-3xl rounded-3xl bg-white p-10 text-center shadow-lg">
-          <Globe className="mx-auto h-14 w-14 text-blue-600" />
-          <h1 className="mt-4 text-3xl font-bold text-gray-900">Public Space</h1>
-          <p className="mt-3 text-gray-600">
-            Sign in with your account first to join the public community, build
-            friendships, and share photos or videos.
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50/30 flex items-center justify-center px-4 py-20">
+        <div className="mx-auto max-w-lg rounded-3xl bg-white p-12 text-center shadow-xl shadow-slate-100 border border-slate-100">
+          <div className="mx-auto h-16 w-16 rounded-2xl bg-blue-50 flex items-center justify-center mb-6">
+            <Globe className="h-8 w-8 text-blue-600" />
+          </div>
+          <h1 className="text-2xl font-extrabold text-slate-900 font-heading">
+            Join the Public Space
+          </h1>
+          <p className="mt-3 text-sm text-slate-500 leading-relaxed">
+            Sign in with Google to connect with the community, share updates, upload photos & videos, and grow your network.
           </p>
-          <div className="mt-8 flex justify-center gap-4">
+          <div className="mt-8 flex justify-center gap-3">
             <Link
               href="/"
-              className="rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white hover:bg-blue-700"
+              className="rounded-xl bg-blue-600 px-6 py-3 text-sm font-bold text-white hover:bg-blue-700 shadow-md shadow-blue-100 transition-all"
             >
-              Go home
+              Sign in &amp; Join
             </Link>
             <Link
               href="/profile"
-              className="rounded-xl border border-gray-300 px-5 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+              className="rounded-xl border border-slate-200 px-6 py-3 text-sm font-bold text-slate-700 hover:bg-slate-50 transition-all"
             >
-              View profile
+              My Profile
             </Link>
           </div>
         </div>
@@ -340,174 +383,211 @@ const PublicSpacePage = () => {
     );
   }
 
+  // ── Main UI ───────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-slate-50/50 px-4 py-10 animate-slide-up">
-      <div className="mx-auto max-w-7xl">
-        {/* Banner Section */}
-        <div className="mb-8 flex flex-col gap-6 rounded-3xl bg-gradient-to-br from-blue-600 via-indigo-600 to-violet-750 p-8 text-white shadow-xl shadow-slate-100 lg:flex-row lg:items-center lg:justify-between relative overflow-hidden">
-          {/* Background overlay design details */}
-          <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-white/5 rounded-full blur-[80px]" />
-          <div className="absolute -bottom-20 -left-20 w-[300px] h-[300px] bg-indigo-500/10 rounded-full blur-[80px]" />
-
-          <div className="relative z-10">
-            <p className="text-xs font-black uppercase tracking-[0.25em] text-blue-100">
-              Community Space
-            </p>
-            <h1 className="mt-2.5 text-3xl font-extrabold font-heading tracking-tight">Public Space Timeline</h1>
-            <p className="mt-3 max-w-xl text-blue-100/80 text-xs sm:text-sm leading-relaxed">
-              Share updates, upload media, comment on student queries, and expand your connection count to unlock higher daily post limits.
+    <div className="min-h-screen bg-slate-50/50 animate-slide-up">
+      {/* Banner */}
+      <div className="relative overflow-hidden bg-gradient-to-br from-blue-600 via-indigo-600 to-violet-700 px-6 py-10 lg:px-12 lg:py-14">
+        <div className="absolute inset-0 opacity-10">
+          <svg className="h-full w-full" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <pattern id="ps-grid" x="0" y="0" width="32" height="32" patternUnits="userSpaceOnUse">
+                <circle cx="16" cy="16" r="1.5" fill="white" />
+              </pattern>
+            </defs>
+            <rect width="100%" height="100%" fill="url(#ps-grid)" />
+          </svg>
+        </div>
+        <div className="relative z-10 mx-auto max-w-7xl flex flex-col gap-8 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-blue-100 border border-white/10 backdrop-blur-sm mb-4">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              Live Community Feed
+            </span>
+            <h1 className="text-3xl font-extrabold font-heading tracking-tight text-white lg:text-4xl">
+              Public Space
+            </h1>
+            <p className="mt-2 max-w-lg text-sm text-blue-100/80 leading-relaxed">
+              Share updates, upload media to Firebase Storage, comment on posts, and expand connections to unlock higher daily post limits.
             </p>
           </div>
-          
-          <div className="relative z-10 grid grid-cols-2 gap-4 rounded-2xl bg-white/10 p-4.5 backdrop-blur-md border border-white/10 min-w-[280px]">
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-wider text-blue-100">Connections</p>
-              <p className="mt-0.5 text-2xl font-black font-heading">${profile?.friendsCount ?? 0}</p>
-            </div>
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-wider text-blue-100">Today posts</p>
-              <p className="mt-0.5 text-2xl font-black font-heading">${profile?.todayPosts ?? 0}</p>
-            </div>
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-wider text-blue-100">Daily limit</p>
-              <p className="mt-0.5 text-2xl font-black font-heading">
-                ${profile?.dailyPostLimit ?? 0}
-              </p>
-            </div>
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-wider text-blue-100">Remaining</p>
-              <p className="mt-0.5 text-2xl font-black font-heading">
-                ${profile?.dailyPostLimit === "unlimited"
-                  ? "∞"
-                  : profile?.remainingPosts ?? 0}
-              </p>
-            </div>
+          {/* Stats pills */}
+          <div className="grid grid-cols-2 gap-3 min-w-[260px]">
+            {[
+              { label: "Connections", value: profile?.friendsCount ?? 0 },
+              { label: "Today's posts", value: profile?.todayPosts ?? 0 },
+              {
+                label: "Daily limit",
+                value:
+                  profile?.dailyPostLimit === "unlimited"
+                    ? "∞"
+                    : profile?.dailyPostLimit ?? 0,
+              },
+              {
+                label: "Remaining",
+                value:
+                  profile?.dailyPostLimit === "unlimited"
+                    ? "∞"
+                    : profile?.remainingPosts ?? 0,
+              },
+            ].map((stat) => (
+              <div
+                key={stat.label}
+                className="rounded-2xl bg-white/10 border border-white/10 backdrop-blur-sm p-4 text-center"
+              >
+                <p className="text-2xl font-black font-heading text-white">
+                  {stat.value}
+                </p>
+                <p className="mt-0.5 text-[10px] font-bold uppercase tracking-wider text-blue-100">
+                  {stat.label}
+                </p>
+              </div>
+            ))}
           </div>
         </div>
+      </div>
 
-        <div className="grid gap-8 lg:grid-cols-[360px_minmax(0,1fr)]">
-          {/* Sidebar */}
-          <div className="space-y-6">
-            {/* User profile tile */}
-            <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm shadow-slate-100">
+      {/* Body */}
+      <div className="mx-auto max-w-7xl px-4 py-8 lg:px-8">
+        <div className="grid gap-6 lg:grid-cols-[340px_minmax(0,1fr)]">
+          {/* ── Sidebar ───────────────────────────────────────────── */}
+          <aside className="space-y-5">
+            {/* Profile card */}
+            <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
               <div className="flex items-center gap-4">
                 {communityUser.photo ? (
                   <img
                     src={communityUser.photo}
                     alt={communityUser.name}
-                    className="h-14 w-14 rounded-full object-cover border border-slate-100 shadow-sm"
+                    className="h-14 w-14 rounded-full object-cover border-2 border-slate-100 shadow-sm"
                   />
                 ) : (
-                  <div className="flex h-14 w-14 items-center justify-center rounded-full bg-blue-50 font-bold text-blue-600 border border-blue-100 text-lg">
-                    {communityUser.name?.charAt(0)?.toUpperCase()}
-                  </div>
+                  <AvatarPlaceholder name={communityUser.name} size="lg" />
                 )}
-                <div>
-                  <h2 className="text-base font-bold text-slate-800 font-heading">
+                <div className="min-w-0">
+                  <h2 className="font-bold text-slate-800 font-heading truncate">
                     {communityUser.name}
                   </h2>
-                  <p className="text-xs text-slate-455 mt-0.5 font-medium">{communityUser.email}</p>
+                  <p className="text-xs text-slate-400 font-medium truncate mt-0.5">
+                    {communityUser.email}
+                  </p>
                 </div>
               </div>
-              <div className="mt-5 rounded-xl bg-slate-50 border border-slate-100 p-4 text-xs leading-relaxed text-slate-550">
-                <p className="font-bold text-slate-700 font-heading uppercase tracking-wider mb-1.5 text-[10px]">Posting rule</p>
+              <div className="mt-4 rounded-xl bg-amber-50/60 border border-amber-100 p-3.5 text-xs leading-relaxed text-amber-800">
+                <p className="font-bold uppercase tracking-wider text-[10px] text-amber-600 mb-1">
+                  Posting Rules
+                </p>
                 <p>
-                  0 friends: no posting. 1 friend: 1 post/day. 2 friends: 2 posts/day. 3-10 friends: same posts as friends count. &gt;10 friends: unlimited.
+                  0 friends → no posts · 1 friend → 1/day · 2 → 2/day · 3–10 → same as friend count · 10+ → unlimited
                 </p>
               </div>
             </div>
 
-            {/* Add friend form */}
-            <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm shadow-slate-100">
+            {/* Add friend */}
+            <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
               <div className="flex items-center gap-2 mb-4">
-                <UserPlus className="h-4.5 w-4.5 text-blue-600" />
-                <h2 className="text-base font-bold text-slate-800 font-heading">
-                  Add connection
+                <UserPlus className="h-4 w-4 text-blue-600" />
+                <h2 className="text-sm font-bold text-slate-800 font-heading">
+                  Add Connection
                 </h2>
               </div>
-              <form onSubmit={handleAddFriend} className="space-y-3.5">
+              <form onSubmit={handleAddFriend} className="space-y-3">
                 <input
                   type="text"
                   value={friendForm.name}
-                  onChange={(event) =>
-                    setFriendForm((previous) => ({
-                      ...previous,
-                      name: event.target.value,
-                    }))
+                  onChange={(e) =>
+                    setFriendForm((prev) => ({ ...prev, name: e.target.value }))
                   }
-                  placeholder="Connection name"
-                  className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-xs text-slate-700 placeholder-slate-400 outline-none focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500 transition-all font-semibold"
+                  placeholder="Friend's name"
+                  className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-xs text-slate-700 placeholder-slate-400 outline-none focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500 transition-all font-medium"
                 />
                 <input
                   type="email"
                   value={friendForm.email}
-                  onChange={(event) =>
-                    setFriendForm((previous) => ({
-                      ...previous,
-                      email: event.target.value,
-                    }))
+                  onChange={(e) =>
+                    setFriendForm((prev) => ({ ...prev, email: e.target.value }))
                   }
-                  placeholder="Connection email"
-                  className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-xs text-slate-700 placeholder-slate-400 outline-none focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500 transition-all font-semibold"
+                  placeholder="Friend's email"
+                  className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-xs text-slate-700 placeholder-slate-400 outline-none focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500 transition-all font-medium"
                 />
                 <button
                   type="submit"
                   disabled={isAddingFriend}
                   className="w-full rounded-xl bg-blue-600 px-4 py-2.5 text-xs font-bold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60 transition-colors shadow-sm"
                 >
-                  {isAddingFriend ? "Adding..." : "Add connection"}
+                  {isAddingFriend ? "Adding..." : "Add Connection"}
                 </button>
               </form>
             </div>
 
-            {/* Friend List Grid */}
-            <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm shadow-slate-100">
+            {/* Friends list */}
+            <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
               <div className="flex items-center gap-2 mb-4">
-                <Users className="h-4.5 w-4.5 text-blue-600" />
-                <h2 className="text-base font-bold text-slate-800 font-heading">
+                <Users className="h-4 w-4 text-blue-600" />
+                <h2 className="text-sm font-bold text-slate-800 font-heading">
                   Connections
+                  <span className="ml-2 px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-600 text-[10px] font-bold">
+                    {profile?.friendsCount ?? 0}
+                  </span>
                 </h2>
               </div>
-              <div className="space-y-2.5 max-h-60 overflow-y-auto pr-1">
+              <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
                 {profile?.friends?.length ? (
                   profile.friends.map((friend) => (
                     <div
                       key={friend.userKey}
-                      className="flex items-center justify-between rounded-xl border border-slate-50 px-3.5 py-2.5 bg-slate-50/20"
+                      className="flex items-center gap-3 rounded-xl border border-slate-100 bg-slate-50/50 px-3 py-2.5"
                     >
-                      <div>
-                        <p className="font-bold text-slate-750 text-xs">{friend.name}</p>
-                        <p className="text-[10px] text-slate-455 font-medium mt-0.5">{friend.email}</p>
+                      {friend.photo ? (
+                        <img
+                          src={friend.photo}
+                          alt={friend.name}
+                          className="h-8 w-8 rounded-full object-cover border border-slate-100"
+                        />
+                      ) : (
+                        <AvatarPlaceholder name={friend.name} size="sm" />
+                      )}
+                      <div className="min-w-0">
+                        <p className="font-bold text-slate-700 text-xs truncate">
+                          {friend.name}
+                        </p>
+                        <p className="text-[10px] text-slate-400 font-medium truncate">
+                          {friend.email}
+                        </p>
                       </div>
                     </div>
                   ))
                 ) : (
-                  <p className="rounded-xl bg-slate-50 border border-slate-100 px-4 py-4 text-xs text-slate-455 font-medium text-center">
-                    No connections yet. Add a friend to unlock posting privileges.
+                  <p className="rounded-xl bg-slate-50 border border-slate-100 px-4 py-4 text-xs text-slate-400 font-medium text-center">
+                    No connections yet. Add friends to unlock posting!
                   </p>
                 )}
               </div>
             </div>
-          </div>
+          </aside>
 
-          {/* Main Feed Column */}
-          <div className="space-y-6">
-            {/* Create a Post Box */}
-            <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm shadow-slate-100">
-              <h2 className="text-base font-bold text-slate-800 font-heading mb-4">
-                Create a post
+          {/* ── Feed Column ──────────────────────────────────────── */}
+          <div className="space-y-5">
+            {/* Create Post */}
+            <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
+              <h2 className="text-sm font-bold text-slate-800 font-heading mb-4">
+                Create a Post
               </h2>
               <textarea
                 value={composerText}
-                onChange={(event) => setComposerText(event.target.value)}
+                onChange={(e) => setComposerText(e.target.value)}
                 placeholder="Share something inspiring with the community..."
-                className="w-full min-h-[96px] rounded-2xl border border-slate-200 p-4 text-xs sm:text-sm text-slate-700 placeholder-slate-455 focus:outline-none focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500 transition-all font-medium leading-relaxed"
+                rows={3}
+                className="w-full rounded-2xl border border-slate-200 p-4 text-xs sm:text-sm text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500 transition-all font-medium leading-relaxed resize-none"
               />
-              <div className="mt-4 flex flex-wrap gap-3">
-                <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-slate-200 bg-slate-50/50 hover:bg-slate-50 px-3.5 py-2 text-xs font-bold text-slate-600 hover:text-slate-850 transition-colors">
-                  <ImagePlus className="h-4 w-4 text-slate-500" />
-                  Attach media
+
+              {/* Upload button */}
+              <div className="mt-3 flex flex-wrap gap-3">
+                <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-slate-200 bg-slate-50/50 hover:bg-slate-50 px-3.5 py-2 text-xs font-bold text-slate-600 hover:text-slate-800 transition-colors">
+                  <Upload className="h-3.5 w-3.5 text-blue-500" />
+                  Upload to Firebase
                   <input
+                    ref={fileInputRef}
                     type="file"
                     accept="image/*,video/*"
                     multiple
@@ -517,52 +597,103 @@ const PublicSpacePage = () => {
                 </label>
               </div>
 
-              {mediaItems.length ? (
-                <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                  {mediaItems.map((item, index) => (
+              {/* Upload progress items */}
+              {uploadingFiles.length > 0 && (
+                <div className="mt-4 space-y-2">
+                  {uploadingFiles.map((item) => (
                     <div
-                      key={`${item.name}-${index}`}
-                      className="overflow-hidden rounded-xl border border-slate-150 bg-slate-50"
+                      key={item.id}
+                      className="relative overflow-hidden rounded-xl border border-slate-200 bg-slate-50"
                     >
-                      {item.type === "image" ? (
-                        <img
-                          src={item.url}
-                          alt={item.name}
-                          className="h-32 w-full object-cover"
-                        />
-                      ) : (
-                        <video
-                          src={item.url}
-                          controls
-                          className="h-32 w-full object-cover"
-                        />
+                      {/* Media preview */}
+                      {item.status === "done" && (
+                        item.type === "image" ? (
+                          <img
+                            src={item.url}
+                            alt={item.name}
+                            className="w-full h-32 object-cover"
+                          />
+                        ) : (
+                          <video
+                            src={item.url}
+                            controls
+                            className="w-full h-32 object-cover"
+                          />
+                        )
                       )}
-                      <div className="flex items-center gap-2 px-3.5 py-2.5 text-xs text-slate-500 font-semibold truncate border-t border-slate-100 bg-white">
-                        <ImagePlus className="h-3.5 w-3.5 flex-shrink-0" />
-                        <span className="truncate">{item.name}</span>
+
+                      {/* Progress bar for in-progress */}
+                      {item.status === "uploading" && (
+                        <div className="h-32 flex flex-col items-center justify-center gap-3 p-4">
+                          <Loader2 className="h-6 w-6 text-blue-500 animate-spin" />
+                          <div className="w-full">
+                            <div className="flex justify-between text-[10px] font-bold text-slate-500 mb-1">
+                              <span className="truncate max-w-[180px]">{item.name}</span>
+                              <span>{item.progress}%</span>
+                            </div>
+                            <div className="h-1.5 w-full rounded-full bg-slate-200 overflow-hidden">
+                              <div
+                                className="h-full rounded-full bg-blue-500 transition-all duration-200"
+                                style={{ width: `${item.progress}%` }}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* File info footer */}
+                      <div className="flex items-center gap-2 px-3 py-2 bg-white border-t border-slate-100">
+                        {item.status === "done" ? (
+                          <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 flex-shrink-0" />
+                        ) : item.status === "error" ? (
+                          <X className="h-3.5 w-3.5 text-red-500 flex-shrink-0" />
+                        ) : (
+                          <ImagePlus className="h-3.5 w-3.5 text-blue-500 flex-shrink-0" />
+                        )}
+                        <span className="text-[10px] font-bold text-slate-500 truncate flex-1">
+                          {item.name}
+                        </span>
+                        <button
+                          onClick={() => removeUploadingFile(item.id)}
+                          className="flex-shrink-0 rounded-lg p-0.5 hover:bg-slate-100 transition-colors"
+                        >
+                          <X className="h-3 w-3 text-slate-400" />
+                        </button>
                       </div>
                     </div>
                   ))}
                 </div>
-              ) : null}
+              )}
 
-              {!canPost ? (
-                <div className="mt-4 bg-amber-50/55 border border-amber-100 rounded-xl px-4 py-3 flex items-start space-x-2">
-                  <span className="text-amber-600 mt-0.5">⚠️</span>
+              {!canPost && (
+                <div className="mt-4 rounded-xl bg-amber-50 border border-amber-100 px-4 py-3 flex items-start gap-2">
+                  <span className="text-amber-600 mt-0.5 text-sm">⚠️</span>
                   <p className="text-xs text-amber-800 font-semibold leading-relaxed">
-                    You require more connection entries or remaining daily limits to post today.
+                    You need more connections or remaining daily posts to publish today.
                   </p>
                 </div>
-              ) : null}
+              )}
 
-              <div className="mt-5 pt-4 border-t border-slate-50 flex justify-end">
+              <div className="mt-5 pt-4 border-t border-slate-100 flex justify-end">
                 <button
                   type="button"
-                  disabled={isPosting || !canPost}
+                  disabled={isPosting || !canPost || (!composerText.trim() && !hasMedia) || !allUploadsReady}
                   onClick={handleCreatePost}
-                  className="rounded-xl bg-blue-600 px-6 py-2.5 text-xs font-bold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60 transition-colors shadow-sm"
+                  className="rounded-xl bg-blue-600 px-6 py-2.5 text-xs font-bold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50 transition-colors shadow-sm flex items-center gap-2"
                 >
-                  {isPosting ? "Publishing..." : "Publish Post"}
+                  {isPosting ? (
+                    <>
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      Publishing...
+                    </>
+                  ) : !allUploadsReady ? (
+                    <>
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      Uploading...
+                    </>
+                  ) : (
+                    "Publish Post"
+                  )}
                 </button>
               </div>
             </div>
@@ -570,8 +701,11 @@ const PublicSpacePage = () => {
             {/* Posts Stream */}
             <div className="space-y-5">
               {loading ? (
-                <div className="rounded-2xl border border-slate-100 bg-white p-8 text-center text-xs font-bold text-slate-400 shadow-sm">
-                  Loading community timeline feed...
+                <div className="rounded-2xl border border-slate-100 bg-white p-10 text-center">
+                  <Loader2 className="h-8 w-8 text-blue-500 animate-spin mx-auto mb-3" />
+                  <p className="text-xs font-bold text-slate-400">
+                    Loading community feed...
+                  </p>
                 </div>
               ) : feed.length ? (
                 feed.map((post) => {
@@ -584,7 +718,7 @@ const PublicSpacePage = () => {
                       key={post._id}
                       className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm hover:shadow-md hover:shadow-slate-50 transition-all duration-300"
                     >
-                      {/* Author Details Header */}
+                      {/* Author */}
                       <div className="flex items-center gap-3">
                         {post.author.photo ? (
                           <img
@@ -593,44 +727,43 @@ const PublicSpacePage = () => {
                             className="h-11 w-11 rounded-full object-cover border border-slate-100 shadow-sm"
                           />
                         ) : (
-                          <div className="flex h-11 w-11 items-center justify-center rounded-full bg-blue-50 font-bold text-blue-600 text-sm border border-blue-100">
-                            {post.author.name?.charAt(0)?.toUpperCase()}
-                          </div>
+                          <AvatarPlaceholder name={post.author.name} />
                         )}
                         <div>
                           <h3 className="font-bold text-slate-800 text-sm font-heading">
                             {post.author.name}
                           </h3>
-                          <p className="text-[10px] text-slate-405 font-bold mt-0.5">
+                          <p className="text-[10px] text-slate-400 font-bold mt-0.5">
                             {new Date(post.createdAt).toLocaleString()}
                           </p>
                         </div>
                       </div>
 
-                      {post.text ? (
-                        <p className="mt-4 whitespace-pre-wrap text-xs sm:text-sm text-slate-650 leading-relaxed">
+                      {post.text && (
+                        <p className="mt-4 whitespace-pre-wrap text-xs sm:text-sm text-slate-700 leading-relaxed">
                           {post.text}
                         </p>
-                      ) : null}
+                      )}
 
+                      {/* Media grid — Firebase Storage URLs */}
                       {post.media?.length ? (
-                        <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                          {post.media.map((item, index) => (
+                        <div className={`mt-4 grid gap-2 ${post.media.length === 1 ? "" : "grid-cols-2"}`}>
+                          {post.media.map((item, idx) => (
                             <div
-                              key={`${post._id}-media-${index}`}
-                              className="overflow-hidden rounded-xl border border-slate-150 bg-slate-50"
+                              key={`${post._id}-media-${idx}`}
+                              className="overflow-hidden rounded-xl border border-slate-100 bg-slate-50"
                             >
                               {item.type === "image" ? (
                                 <img
                                   src={item.url}
-                                  alt={item.name || "Post media"}
-                                  className="h-60 w-full object-cover"
+                                  alt={item.name || "Post image"}
+                                  className="w-full h-60 object-cover"
                                 />
                               ) : (
                                 <video
                                   src={item.url}
                                   controls
-                                  className="h-60 w-full object-cover"
+                                  className="w-full h-60 object-cover"
                                 />
                               )}
                             </div>
@@ -638,8 +771,8 @@ const PublicSpacePage = () => {
                         </div>
                       ) : null}
 
-                      {/* Action buttons row */}
-                      <div className="mt-6 pt-4 border-t border-slate-100 flex flex-wrap gap-2 text-xs">
+                      {/* Action bar */}
+                      <div className="mt-5 pt-4 border-t border-slate-100 flex flex-wrap gap-2 text-xs">
                         <button
                           type="button"
                           onClick={() => handleLike(post._id)}
@@ -649,13 +782,15 @@ const PublicSpacePage = () => {
                               : "bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-100"
                           }`}
                         >
-                          <Heart className="h-3.5 w-3.5" />
+                          <Heart
+                            className={`h-3.5 w-3.5 ${likedByCurrentUser ? "fill-rose-500" : ""}`}
+                          />
                           <span>{post.likes.length}</span>
                         </button>
-                        
+
                         <button
                           type="button"
-                          className="inline-flex items-center gap-1.5 rounded-xl bg-slate-55 hover:bg-slate-100 text-slate-600 border border-slate-100 px-3 py-1.5 font-bold transition-colors"
+                          className="inline-flex items-center gap-1.5 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-100 px-3 py-1.5 font-bold transition-colors"
                         >
                           <MessageCircle className="h-3.5 w-3.5" />
                           <span>{post.comments.length}</span>
@@ -671,44 +806,66 @@ const PublicSpacePage = () => {
                         </button>
                       </div>
 
-                      {/* Comments section */}
-                      <div className="mt-5 rounded-2xl bg-slate-50/80 border border-slate-100 p-4">
+                      {/* Comment section */}
+                      <div className="mt-4 rounded-2xl bg-slate-50/80 border border-slate-100 p-4">
                         <div className="flex gap-2">
                           <input
                             type="text"
                             value={commentInputs[post._id] || ""}
-                            onChange={(event) =>
-                              setCommentInputs((previous) => ({
-                                ...previous,
-                                [post._id]: event.target.value,
+                            onChange={(e) =>
+                              setCommentInputs((prev) => ({
+                                ...prev,
+                                [post._id]: e.target.value,
                               }))
                             }
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") handleComment(post._id);
+                            }}
                             placeholder="Write a comment..."
-                            className="flex-1 rounded-xl border border-slate-200 px-3.5 py-2 text-xs text-slate-700 placeholder-slate-400 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500 transition-all font-semibold"
+                            className="flex-1 rounded-xl border border-slate-200 px-3.5 py-2 text-xs text-slate-700 placeholder-slate-400 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500 transition-all font-medium"
                           />
                           <button
                             type="button"
                             onClick={() => handleComment(post._id)}
-                            className="rounded-xl bg-blue-650 px-4 py-2 text-xs font-bold text-white hover:bg-blue-700 transition-colors shadow-sm"
+                            className="rounded-xl bg-blue-600 px-4 py-2 text-xs font-bold text-white hover:bg-blue-700 transition-colors shadow-sm"
                           >
-                            Comment
+                            Post
                           </button>
                         </div>
 
                         {post.comments.length ? (
-                          <div className="mt-4 space-y-2.5 max-h-56 overflow-y-auto pr-1">
+                          <div className="mt-3 space-y-2 max-h-56 overflow-y-auto pr-1">
                             {post.comments.map((comment) => (
                               <div
                                 key={comment._id}
-                                className="rounded-xl bg-white border border-slate-100 p-3 shadow-sm shadow-slate-50"
+                                className="rounded-xl bg-white border border-slate-100 p-3 shadow-sm"
                               >
-                                <div className="flex items-center justify-between mb-1">
-                                  <span className="font-bold text-slate-800 text-[11px] font-heading">{comment.author.name}</span>
-                                  <span className="text-[9px] text-slate-400 font-medium">
-                                    {new Date(comment.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                                <div className="flex items-center gap-2 mb-1">
+                                  {comment.author.photo ? (
+                                    <img
+                                      src={comment.author.photo}
+                                      alt={comment.author.name}
+                                      className="h-6 w-6 rounded-full object-cover"
+                                    />
+                                  ) : (
+                                    <AvatarPlaceholder
+                                      name={comment.author.name}
+                                      size="sm"
+                                    />
+                                  )}
+                                  <span className="font-bold text-slate-800 text-[11px] font-heading">
+                                    {comment.author.name}
+                                  </span>
+                                  <span className="ml-auto text-[9px] text-slate-400 font-medium">
+                                    {new Date(comment.createdAt).toLocaleDateString("en-US", {
+                                      month: "short",
+                                      day: "numeric",
+                                      hour: "2-digit",
+                                      minute: "2-digit",
+                                    })}
                                   </span>
                                 </div>
-                                <p className="text-xs text-slate-650 font-semibold leading-relaxed">
+                                <p className="text-xs text-slate-700 font-medium leading-relaxed pl-8">
                                   {comment.text}
                                 </p>
                               </div>
@@ -716,7 +873,7 @@ const PublicSpacePage = () => {
                           </div>
                         ) : (
                           <p className="text-[11px] text-slate-400 font-bold py-3 text-center">
-                            No comments yet. Start the conversation.
+                            No comments yet — start the conversation!
                           </p>
                         )}
                       </div>
@@ -724,8 +881,11 @@ const PublicSpacePage = () => {
                   );
                 })
               ) : (
-                <div className="rounded-2xl border border-slate-100 bg-white p-12 text-center text-xs font-bold text-slate-400 shadow-sm">
-                  No public posts yet. Be the first to share something inspiring with the community!
+                <div className="rounded-2xl border border-slate-100 bg-white p-16 text-center">
+                  <Globe className="h-10 w-10 text-slate-200 mx-auto mb-4" />
+                  <p className="text-sm font-bold text-slate-400">
+                    No posts yet. Be the first to share something!
+                  </p>
                 </div>
               )}
             </div>

@@ -2,24 +2,26 @@ const express = require("express");
 const router = express.Router();
 const application = require("../Model/Application");
 
+// POST / — Create new application
 router.post("/", async (req, res) => {
-  const applicationipdata = new application({
-    company: req.body.company,
-    category: req.body.category,
-    coverLetter: req.body.coverLetter,
-    user: req.body.user,
-    Application: req.body.Application,
-    body: req.body.body,
-  });
-  await applicationipdata
-    .save()
-    .then((data) => {
-      res.send(data);
-    })
-    .catch((error) => {
-      console.log(error);
+  try {
+    const applicationData = new application({
+      company: req.body.company,
+      category: req.body.category,
+      coverLetter: req.body.coverLetter,
+      user: req.body.user,
+      Application: req.body.Application,
+      body: req.body.body,
     });
+    const saved = await applicationData.save();
+    return res.status(201).json(saved);
+  } catch (error) {
+    console.error("Error creating application:", error);
+    return res.status(500).json({ error: "Unable to submit application." });
+  }
 });
+
+// GET / — Fetch all applications (or filtered by uid/email)
 router.get("/", async (req, res) => {
   try {
     const { uid, email } = req.query;
@@ -30,50 +32,51 @@ router.get("/", async (req, res) => {
       query["user.email"] = String(email).trim().toLowerCase();
     }
     const data = await application.find(query);
-    res.json(data).status(200);
+    return res.status(200).json(data);
   } catch (error) {
-    console.log(error);
-    res.status(500).json({ error: "internal server error" });
+    console.error("Error fetching applications:", error);
+    return res.status(500).json({ error: "Internal server error." });
   }
 });
+
+// GET /:id — Fetch single application by ID
 router.get("/:id", async (req, res) => {
   const { id } = req.params;
   try {
     const data = await application.findById(id);
     if (!data) {
-      res.status(404).json({ error: "application not found" });
+      return res.status(404).json({ error: "Application not found." });
     }
-    res.json(data).status(200);
+    return res.status(200).json(data);
   } catch (error) {
-    console.log(error);
-    res.status(404).json({ error: "internal server error" });
+    console.error("Error fetching application:", error);
+    return res.status(500).json({ error: "Internal server error." });
   }
 });
+
+// PUT /:id — Accept or reject application
 router.put("/:id", async (req, res) => {
   const { id } = req.params;
   const { action } = req.body;
-  let status;
-  if (action === "accepted") {
-    status = "accepted";
-  } else if (action === "rejected") {
-    status = "rejected";
-  } else {
-    res.status(404).json({ error: "Invalid action" });
-    return;
+
+  if (action !== "accepted" && action !== "rejected") {
+    return res.status(400).json({ error: "Invalid action. Use 'accepted' or 'rejected'." });
   }
+
   try {
-    const updateapplication = await application.findByIdAndUpdate(
+    const updated = await application.findByIdAndUpdate(
       id,
-      { $set: { status } },
+      { $set: { status: action } },
       { new: true }
     );
-    if (!updateapplication) {
-      res.status(404).json({ error: "Not able to update the application" });
-      return;
+    if (!updated) {
+      return res.status(404).json({ error: "Application not found." });
     }
-    res.status(200).json({ sucess: true, data: updateapplication });
+    return res.status(200).json({ success: true, data: updated });
   } catch (error) {
-    res.status(500).json({ error: "internal server error" });
+    console.error("Error updating application:", error);
+    return res.status(500).json({ error: "Internal server error." });
   }
 });
+
 module.exports = router;

@@ -1,3 +1,4 @@
+require("dotenv").config();
 const bodyparser = require("body-parser");
 const express = require("express");
 const app = express();
@@ -23,7 +24,7 @@ app.use(bodyparser.urlencoded({ extended: true, limit: "50mb" }));
 app.use(express.json());
 
 app.get("/", (req, res) => {
-  res.send("hello this is internshala backend");
+  res.json({ message: "InternArea backend is running." });
 });
 app.use("/api", router);
 connect();

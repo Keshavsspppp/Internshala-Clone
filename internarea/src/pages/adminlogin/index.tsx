@@ -22,7 +22,7 @@ const index = () => {
   const handlesubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formadata.username || !formadata.password) {
-      toast.error("Please fill in all detials");
+      toast.error("Please fill in all details");
       return;
     }
     try {
@@ -31,7 +31,7 @@ const index = () => {
         `${process.env.NEXT_PUBLIC_API_URL}/api/admin/adminlogin`,
         formadata
       );
-      toast.success("logged in successfuly");
+      toast.success("Logged in successfully.");
       router.push("/adminpanel");
     } catch (error) {
       console.log(error);

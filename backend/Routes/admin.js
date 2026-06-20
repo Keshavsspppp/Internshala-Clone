@@ -94,7 +94,7 @@ router.post("/adminlogin", async (req, res) => {
       return res.status(401).send("Unauthorized");
     }
 
-    return res.send("admin is here");
+    return res.status(200).json({ success: true, message: "Login successful." });
   } catch (error) {
     console.error("Admin login failed:", error);
     return res.status(500).send("Unable to process login right now");
