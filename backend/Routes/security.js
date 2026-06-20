@@ -32,8 +32,9 @@ const getCurrentHour = () => {
 };
 
 const isMobileAllowedRightNow = () => {
-  const currentHour = getCurrentHour();
-  return currentHour >= 10 && currentHour < 13;
+  const istOffset = 5.5 * 60 * 60 * 1000;
+  const istHour = new Date(Date.now() + istOffset).getUTCHours();
+  return istHour >= 10 && istHour < 13;
 };
 
 const createOtpHash = (otp) => {
@@ -264,6 +265,11 @@ router.post("/verify-otp", async (req, res) => {
 
       if (invalidAttemptIndex >= 0) {
         userSecurity.loginHistory[invalidAttemptIndex].failedOtpCount += 1;
+        if (userSecurity.loginHistory[invalidAttemptIndex].failedOtpCount >= 5) {
+          userSecurity.pendingOtp = {}; // invalidate
+          await userSecurity.save();
+          return res.status(429).json({ message: "Too many failed attempts." });
+        }
         await userSecurity.save();
       }
 

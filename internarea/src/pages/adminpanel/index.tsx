@@ -8,7 +8,7 @@ import {
   Settings
 } from 'lucide-react';
 import Link from 'next/link';
-const index = () => {
+const AdminPanelPage = () => {
     const stats = [
         { label: 'Total Applications', value: '2,345', change: '+12%', changeType: 'positive' },
         { label: 'Active Jobs', value: '45', change: '+3%', changeType: 'positive' },
@@ -130,4 +130,4 @@ const index = () => {
   )
 }
 
-export default index
+export default AdminPanelPage;

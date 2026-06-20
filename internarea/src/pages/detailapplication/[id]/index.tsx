@@ -3,7 +3,7 @@ import { Building2, Calendar, FileText, Loader2, User } from "lucide-react";
 import { useRouter } from "next/router";
 import React, { useEffect, useState } from "react";
 
-const index = () => {
+const ApplicationDetailPage = () => {
   const router = useRouter();
   const { id } = router.query;
   const [loading, setloading] = useState(true);
@@ -127,4 +127,4 @@ const index = () => {
   );
 };
 
-export default index;
+export default ApplicationDetailPage;

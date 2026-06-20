@@ -5,7 +5,7 @@ import { useRouter } from "next/router";
 import React, { useState } from "react";
 import { toast } from "react-toastify";
 
-const index = () => {
+const AdminLoginPage = () => {
   const [formadata, setformadata] = useState({
     username: "",
     password: "",
@@ -133,4 +133,4 @@ const index = () => {
   );
 };
 
-export default index;
+export default AdminLoginPage;

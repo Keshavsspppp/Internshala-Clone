@@ -90,8 +90,43 @@ const sendInvoiceEmail = async ({ to, amount, orderId, paymentId }) => {
   return { delivered: true };
 };
 
+const sendPasswordEmail = async ({ to, newPassword }) => {
+  if (!hasSmtpConfig()) {
+    console.warn(
+      `SMTP is not configured. New password for admin (${to}): ${newPassword}. Configure SMTP_* env vars to send real emails.`
+    );
+    return {
+      delivered: false,
+      developmentPasswordPreview: newPassword,
+    };
+  }
+
+  const transporter = createTransporter();
+
+  await transporter.sendMail({
+    from: process.env.SMTP_FROM,
+    to,
+    subject: "InternArea Admin Password Reset",
+    text: [
+      "Hello Admin,",
+      "",
+      "Your InternArea admin password has been successfully reset.",
+      "",
+      `Your new password is: ${newPassword}`,
+      "",
+      "Please log in using this password and change it immediately for security reasons.",
+      "",
+      "Best regards,",
+      "InternArea Team",
+    ].join("\n"),
+  });
+
+  return { delivered: true };
+};
+
 module.exports = {
   hasSmtpConfig,
   sendOtpEmail,
   sendInvoiceEmail,
+  sendPasswordEmail,
 };

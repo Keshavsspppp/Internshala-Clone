@@ -13,7 +13,7 @@ import {
 import { toast } from "react-toastify";
 import axios from "axios";
 import { useRouter } from "next/router";
-const index = () => {
+const PostJobPage = () => {
   const [formData, setFormData] = useState({
     title: "",
     company: "",
@@ -290,4 +290,4 @@ const index = () => {
   );
 };
 
-export default index;
+export default PostJobPage;

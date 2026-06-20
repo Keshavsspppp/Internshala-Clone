@@ -27,7 +27,7 @@ type SecurityProfile = {
   loginHistory: LoginHistoryItem[];
 };
 
-const index = () => {
+const ProfilePage = () => {
   const user = useSelector(selectuser);
   const [securityProfile, setSecurityProfile] = useState<SecurityProfile | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -267,4 +267,4 @@ const index = () => {
   );
 };
 
-export default index;
+export default ProfilePage;

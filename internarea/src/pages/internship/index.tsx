@@ -45,7 +45,7 @@ import React, { useEffect, useState } from "react";
 //     location: "Los Angeles",
 //   },
 // ];
-const index = () => {
+const InternshipsPage = () => {
   const [filteredInternships, setfilteredInternships] = useState<any>([]);
   const [isFiltervisible, setisFiltervisible] = useState(false);
   const [filter, setfilters] = useState({
@@ -435,4 +435,4 @@ const index = () => {
   );
 };
 
-export default index;
+export default InternshipsPage;

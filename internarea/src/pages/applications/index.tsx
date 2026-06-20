@@ -48,7 +48,7 @@ const getStatusClasses = (status: any) => {
       return "bg-amber-50 text-amber-700 border border-amber-100/50";
   }
 };
-const index = () => {
+const ApplicationsPage = () => {
   const [searchTerm, setsearchTerm] = useState("");
   const [filter, setFilter] = useState("all");
   const [data, setdata] = useState<any>([]);
@@ -335,4 +335,4 @@ const index = () => {
   );
 };
 
-export default index;
+export default ApplicationsPage;

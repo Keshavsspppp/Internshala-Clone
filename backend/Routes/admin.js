@@ -3,6 +3,7 @@ const router = express.Router();
 const crypto = require("crypto");
 const jwt = require("jsonwebtoken");
 const AdminCredential = require("../Model/AdminCredential");
+const { sendPasswordEmail } = require("../utils/mailer");
 
 const DEFAULT_ADMIN_USERNAME = process.env.ADMIN_USERNAME || "admin";
 const DEFAULT_ADMIN_EMAIL =
@@ -153,9 +154,13 @@ router.post("/forgot-password", async (req, res) => {
     adminAccount.lastResetAt = new Date();
     await adminAccount.save();
 
-    return res.json({
-      message: "Your password has been reset successfully.",
+    await sendPasswordEmail({
+      to: adminAccount.email,
       newPassword,
+    });
+
+    return res.json({
+      message: "Password sent to your registered email.",
     });
   } catch (error) {
     console.error("Forgot password failed:", error);

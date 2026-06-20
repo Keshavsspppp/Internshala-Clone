@@ -71,7 +71,7 @@ import { toast } from "react-toastify";
 //   },
 // ];
 
-const index = () => {
+const InternshipDetailPage = () => {
   const router = useRouter();
   const { id } = router.query;
   const [loading, setloading] = useState(true);
@@ -396,4 +396,4 @@ const index = () => {
   );
 };
 
-export default index;
+export default InternshipDetailPage;

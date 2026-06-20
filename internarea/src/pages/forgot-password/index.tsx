@@ -10,7 +10,7 @@ const ForgotPasswordPage = () => {
   const [resetMethod, setResetMethod] = useState<ResetMethod>("email");
   const [identifier, setIdentifier] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [generatedPassword, setGeneratedPassword] = useState("");
+  const [isSuccess, setIsSuccess] = useState(false);
 
   const placeholder = useMemo(() => {
     return resetMethod === "email"
@@ -28,8 +28,7 @@ const ForgotPasswordPage = () => {
 
     try {
       setIsSubmitting(true);
-      setGeneratedPassword("");
-
+      setIsSuccess(false);
       const response = await axios.post(
         `${process.env.NEXT_PUBLIC_API_URL}/api/admin/forgot-password`,
         {
@@ -37,7 +36,7 @@ const ForgotPasswordPage = () => {
         }
       );
 
-      setGeneratedPassword(response.data.newPassword);
+      setIsSuccess(true);
       toast.success(response.data.message || "Password reset successful.");
     } catch (error: any) {
       const message =
@@ -116,16 +115,14 @@ const ForgotPasswordPage = () => {
           </button>
         </form>
 
-        {generatedPassword ? (
+        {isSuccess ? (
           <div className="mt-6 rounded-2xl border border-green-200 bg-green-50 p-5">
             <p className="text-sm font-medium text-green-800">
-              Your new password has been generated.
+              Password Reset Successful
             </p>
-            <div className="mt-3 rounded-xl bg-white px-4 py-3 text-center text-lg font-semibold tracking-wide text-gray-900 shadow-sm">
-              {generatedPassword}
-            </div>
-            <p className="mt-3 text-xs text-green-700">
-              Save this password now and use it on the admin login page.
+            <p className="mt-2 text-xs text-green-700">
+              Your new temporary password has been sent to your registered email.
+              Please check your inbox.
             </p>
           </div>
         ) : null}

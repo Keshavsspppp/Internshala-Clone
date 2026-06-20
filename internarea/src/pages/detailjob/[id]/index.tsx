@@ -116,7 +116,7 @@ import { selectuser } from "@/Feature/Userslice";
 //       numberOfopning: "1",
 //     },
 //   ];
-const index = () => {
+const JobDetailPage = () => {
   const user=useSelector(selectuser)
   const router = useRouter();
   const { id } = router.query;
@@ -436,4 +436,4 @@ const index = () => {
   );
 };
 
-export default index;
+export default JobDetailPage;

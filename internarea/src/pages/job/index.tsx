@@ -13,7 +13,7 @@ import {
 import Link from "next/link";
 import React, { useEffect, useState } from "react";
 
-const index = () => {
+const JobsPage = () => {
   // const filteredJobs = [
   //   {
   //     _id: "101",
@@ -528,4 +528,4 @@ const index = () => {
   );
 };
 
-export default index;
+export default JobsPage;
