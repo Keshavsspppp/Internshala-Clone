@@ -2,7 +2,7 @@ const admin = require("firebase-admin");
 const jwt = require("jsonwebtoken");
 
 // Initialize Firebase Admin if not already initialized
-if (admin.apps.length === 0) {
+if (admin.getApps().length === 0) {
   const firebaseProjectId = process.env.FIREBASE_PROJECT_ID;
   if (!firebaseProjectId) {
     throw new Error("FIREBASE_PROJECT_ID env var is required");
