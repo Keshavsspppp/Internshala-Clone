@@ -341,38 +341,43 @@ const PublicSpacePage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 px-4 py-8">
+    <div className="min-h-screen bg-slate-50/50 px-4 py-10 animate-slide-up">
       <div className="mx-auto max-w-7xl">
-        <div className="mb-8 flex flex-col gap-4 rounded-3xl bg-gradient-to-r from-blue-700 to-indigo-700 p-8 text-white shadow-lg lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.25em] text-blue-100">
-              Community
+        {/* Banner Section */}
+        <div className="mb-8 flex flex-col gap-6 rounded-3xl bg-gradient-to-br from-blue-600 via-indigo-600 to-violet-750 p-8 text-white shadow-xl shadow-slate-100 lg:flex-row lg:items-center lg:justify-between relative overflow-hidden">
+          {/* Background overlay design details */}
+          <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-white/5 rounded-full blur-[80px]" />
+          <div className="absolute -bottom-20 -left-20 w-[300px] h-[300px] bg-indigo-500/10 rounded-full blur-[80px]" />
+
+          <div className="relative z-10">
+            <p className="text-xs font-black uppercase tracking-[0.25em] text-blue-100">
+              Community Space
             </p>
-            <h1 className="mt-2 text-3xl font-bold">Public Space</h1>
-            <p className="mt-3 max-w-2xl text-blue-100">
-              Share photos and videos, comment on community updates, and build
-              connections that increase your daily posting allowance.
+            <h1 className="mt-2.5 text-3xl font-extrabold font-heading tracking-tight">Public Space Timeline</h1>
+            <p className="mt-3 max-w-xl text-blue-100/80 text-xs sm:text-sm leading-relaxed">
+              Share updates, upload media, comment on student queries, and expand your connection count to unlock higher daily post limits.
             </p>
           </div>
-          <div className="grid grid-cols-2 gap-4 rounded-2xl bg-white/10 p-4 backdrop-blur">
+          
+          <div className="relative z-10 grid grid-cols-2 gap-4 rounded-2xl bg-white/10 p-4.5 backdrop-blur-md border border-white/10 min-w-[280px]">
             <div>
-              <p className="text-xs uppercase text-blue-100">Friends</p>
-              <p className="mt-1 text-2xl font-bold">{profile?.friendsCount ?? 0}</p>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-blue-100">Connections</p>
+              <p className="mt-0.5 text-2xl font-black font-heading">${profile?.friendsCount ?? 0}</p>
             </div>
             <div>
-              <p className="text-xs uppercase text-blue-100">Today</p>
-              <p className="mt-1 text-2xl font-bold">{profile?.todayPosts ?? 0}</p>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-blue-100">Today posts</p>
+              <p className="mt-0.5 text-2xl font-black font-heading">${profile?.todayPosts ?? 0}</p>
             </div>
             <div>
-              <p className="text-xs uppercase text-blue-100">Daily limit</p>
-              <p className="mt-1 text-2xl font-bold">
-                {profile?.dailyPostLimit ?? 0}
+              <p className="text-[10px] font-bold uppercase tracking-wider text-blue-100">Daily limit</p>
+              <p className="mt-0.5 text-2xl font-black font-heading">
+                ${profile?.dailyPostLimit ?? 0}
               </p>
             </div>
             <div>
-              <p className="text-xs uppercase text-blue-100">Remaining</p>
-              <p className="mt-1 text-2xl font-bold">
-                {profile?.dailyPostLimit === "unlimited"
+              <p className="text-[10px] font-bold uppercase tracking-wider text-blue-100">Remaining</p>
+              <p className="mt-0.5 text-2xl font-black font-heading">
+                ${profile?.dailyPostLimit === "unlimited"
                   ? "∞"
                   : profile?.remainingPosts ?? 0}
               </p>
@@ -381,45 +386,46 @@ const PublicSpacePage = () => {
         </div>
 
         <div className="grid gap-8 lg:grid-cols-[360px_minmax(0,1fr)]">
+          {/* Sidebar */}
           <div className="space-y-6">
-            <div className="rounded-3xl bg-white p-6 shadow-sm">
+            {/* User profile tile */}
+            <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm shadow-slate-100">
               <div className="flex items-center gap-4">
                 {communityUser.photo ? (
                   <img
                     src={communityUser.photo}
                     alt={communityUser.name}
-                    className="h-14 w-14 rounded-full object-cover"
+                    className="h-14 w-14 rounded-full object-cover border border-slate-100 shadow-sm"
                   />
                 ) : (
-                  <div className="flex h-14 w-14 items-center justify-center rounded-full bg-blue-100 text-lg font-semibold text-blue-700">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-full bg-blue-50 font-bold text-blue-600 border border-blue-100 text-lg">
                     {communityUser.name?.charAt(0)?.toUpperCase()}
                   </div>
                 )}
                 <div>
-                  <h2 className="text-lg font-semibold text-gray-900">
+                  <h2 className="text-base font-bold text-slate-800 font-heading">
                     {communityUser.name}
                   </h2>
-                  <p className="text-sm text-gray-500">{communityUser.email}</p>
+                  <p className="text-xs text-slate-455 mt-0.5 font-medium">{communityUser.email}</p>
                 </div>
               </div>
-              <div className="mt-5 rounded-2xl bg-slate-50 p-4 text-sm text-gray-600">
-                <p className="font-semibold text-gray-800">Posting rule</p>
-                <p className="mt-2">
-                  `0` friends: no posting, `1` friend: `1` post per day, `2`
-                  friends: `2` posts per day, `3-10` friends: same number of
-                  daily posts as friends, more than `10` friends: unlimited.
+              <div className="mt-5 rounded-xl bg-slate-50 border border-slate-100 p-4 text-xs leading-relaxed text-slate-550">
+                <p className="font-bold text-slate-700 font-heading uppercase tracking-wider mb-1.5 text-[10px]">Posting rule</p>
+                <p>
+                  0 friends: no posting. 1 friend: 1 post/day. 2 friends: 2 posts/day. 3-10 friends: same posts as friends count. &gt;10 friends: unlimited.
                 </p>
               </div>
             </div>
 
-            <div className="rounded-3xl bg-white p-6 shadow-sm">
-              <div className="flex items-center gap-2">
-                <UserPlus className="h-5 w-5 text-blue-600" />
-                <h2 className="text-lg font-semibold text-gray-900">
-                  Add a friend
+            {/* Add friend form */}
+            <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm shadow-slate-100">
+              <div className="flex items-center gap-2 mb-4">
+                <UserPlus className="h-4.5 w-4.5 text-blue-600" />
+                <h2 className="text-base font-bold text-slate-800 font-heading">
+                  Add connection
                 </h2>
               </div>
-              <form onSubmit={handleAddFriend} className="mt-5 space-y-4">
+              <form onSubmit={handleAddFriend} className="space-y-3.5">
                 <input
                   type="text"
                   value={friendForm.name}
@@ -429,8 +435,8 @@ const PublicSpacePage = () => {
                       name: event.target.value,
                     }))
                   }
-                  placeholder="Friend name"
-                  className="w-full rounded-2xl border border-gray-300 px-4 py-3 text-gray-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                  placeholder="Connection name"
+                  className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-xs text-slate-700 placeholder-slate-400 outline-none focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500 transition-all font-semibold"
                 />
                 <input
                   type="email"
@@ -441,64 +447,66 @@ const PublicSpacePage = () => {
                       email: event.target.value,
                     }))
                   }
-                  placeholder="Friend email"
-                  className="w-full rounded-2xl border border-gray-300 px-4 py-3 text-gray-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                  placeholder="Connection email"
+                  className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-xs text-slate-700 placeholder-slate-400 outline-none focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500 transition-all font-semibold"
                 />
                 <button
                   type="submit"
                   disabled={isAddingFriend}
-                  className="w-full rounded-2xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="w-full rounded-xl bg-blue-600 px-4 py-2.5 text-xs font-bold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60 transition-colors shadow-sm"
                 >
-                  {isAddingFriend ? "Adding friend..." : "Add friend"}
+                  {isAddingFriend ? "Adding..." : "Add connection"}
                 </button>
               </form>
             </div>
 
-            <div className="rounded-3xl bg-white p-6 shadow-sm">
-              <div className="flex items-center gap-2">
-                <Users className="h-5 w-5 text-blue-600" />
-                <h2 className="text-lg font-semibold text-gray-900">
-                  Friend list
+            {/* Friend List Grid */}
+            <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm shadow-slate-100">
+              <div className="flex items-center gap-2 mb-4">
+                <Users className="h-4.5 w-4.5 text-blue-600" />
+                <h2 className="text-base font-bold text-slate-800 font-heading">
+                  Connections
                 </h2>
               </div>
-              <div className="mt-4 space-y-3">
+              <div className="space-y-2.5 max-h-60 overflow-y-auto pr-1">
                 {profile?.friends?.length ? (
                   profile.friends.map((friend) => (
                     <div
                       key={friend.userKey}
-                      className="flex items-center justify-between rounded-2xl border border-slate-100 px-4 py-3"
+                      className="flex items-center justify-between rounded-xl border border-slate-50 px-3.5 py-2.5 bg-slate-50/20"
                     >
                       <div>
-                        <p className="font-medium text-gray-900">{friend.name}</p>
-                        <p className="text-sm text-gray-500">{friend.email}</p>
+                        <p className="font-bold text-slate-750 text-xs">{friend.name}</p>
+                        <p className="text-[10px] text-slate-455 font-medium mt-0.5">{friend.email}</p>
                       </div>
                     </div>
                   ))
                 ) : (
-                  <p className="rounded-2xl bg-slate-50 px-4 py-4 text-sm text-gray-600">
-                    No friends yet. Add a friend to unlock posting in Public
-                    Space.
+                  <p className="rounded-xl bg-slate-50 border border-slate-100 px-4 py-4 text-xs text-slate-455 font-medium text-center">
+                    No connections yet. Add a friend to unlock posting privileges.
                   </p>
                 )}
               </div>
             </div>
           </div>
 
+          {/* Main Feed Column */}
           <div className="space-y-6">
-            <div className="rounded-3xl bg-white p-6 shadow-sm">
-              <h2 className="text-xl font-semibold text-gray-900">
+            {/* Create a Post Box */}
+            <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm shadow-slate-100">
+              <h2 className="text-base font-bold text-slate-800 font-heading mb-4">
                 Create a post
               </h2>
               <textarea
                 value={composerText}
                 onChange={(event) => setComposerText(event.target.value)}
                 placeholder="Share something inspiring with the community..."
-                className="mt-4 min-h-32 w-full rounded-2xl border border-gray-300 px-4 py-3 text-gray-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                className="w-full min-h-[96px] rounded-2xl border border-slate-200 p-4 text-xs sm:text-sm text-slate-700 placeholder-slate-455 focus:outline-none focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500 transition-all font-medium leading-relaxed"
               />
               <div className="mt-4 flex flex-wrap gap-3">
-                <label className="inline-flex cursor-pointer items-center gap-2 rounded-2xl border border-gray-300 px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50">
-                  <ImagePlus className="h-4 w-4" />
-                  Upload photo or video
+                <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-slate-200 bg-slate-50/50 hover:bg-slate-50 px-3.5 py-2 text-xs font-bold text-slate-600 hover:text-slate-850 transition-colors">
+                  <ImagePlus className="h-4 w-4 text-slate-500" />
+                  Attach media
                   <input
                     type="file"
                     accept="image/*,video/*"
@@ -514,28 +522,24 @@ const PublicSpacePage = () => {
                   {mediaItems.map((item, index) => (
                     <div
                       key={`${item.name}-${index}`}
-                      className="overflow-hidden rounded-2xl border border-slate-200"
+                      className="overflow-hidden rounded-xl border border-slate-150 bg-slate-50"
                     >
                       {item.type === "image" ? (
                         <img
                           src={item.url}
                           alt={item.name}
-                          className="h-48 w-full object-cover"
+                          className="h-32 w-full object-cover"
                         />
                       ) : (
                         <video
                           src={item.url}
                           controls
-                          className="h-48 w-full object-cover"
+                          className="h-32 w-full object-cover"
                         />
                       )}
-                      <div className="flex items-center gap-2 px-4 py-3 text-sm text-gray-600">
-                        {item.type === "image" ? (
-                          <ImagePlus className="h-4 w-4" />
-                        ) : (
-                          <Video className="h-4 w-4" />
-                        )}
-                        {item.name}
+                      <div className="flex items-center gap-2 px-3.5 py-2.5 text-xs text-slate-500 font-semibold truncate border-t border-slate-100 bg-white">
+                        <ImagePlus className="h-3.5 w-3.5 flex-shrink-0" />
+                        <span className="truncate">{item.name}</span>
                       </div>
                     </div>
                   ))}
@@ -543,26 +547,31 @@ const PublicSpacePage = () => {
               ) : null}
 
               {!canPost ? (
-                <p className="mt-4 rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-700">
-                  You need more friends or remaining daily posts before you can
-                  publish new content.
-                </p>
+                <div className="mt-4 bg-amber-50/55 border border-amber-100 rounded-xl px-4 py-3 flex items-start space-x-2">
+                  <span className="text-amber-600 mt-0.5">⚠️</span>
+                  <p className="text-xs text-amber-800 font-semibold leading-relaxed">
+                    You require more connection entries or remaining daily limits to post today.
+                  </p>
+                </div>
               ) : null}
 
-              <button
-                type="button"
-                disabled={isPosting || !canPost}
-                onClick={handleCreatePost}
-                className="mt-5 rounded-2xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {isPosting ? "Publishing..." : "Publish to Public Space"}
-              </button>
+              <div className="mt-5 pt-4 border-t border-slate-50 flex justify-end">
+                <button
+                  type="button"
+                  disabled={isPosting || !canPost}
+                  onClick={handleCreatePost}
+                  className="rounded-xl bg-blue-600 px-6 py-2.5 text-xs font-bold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60 transition-colors shadow-sm"
+                >
+                  {isPosting ? "Publishing..." : "Publish Post"}
+                </button>
+              </div>
             </div>
 
+            {/* Posts Stream */}
             <div className="space-y-5">
               {loading ? (
-                <div className="rounded-3xl bg-white p-8 text-center text-gray-500 shadow-sm">
-                  Loading community feed...
+                <div className="rounded-2xl border border-slate-100 bg-white p-8 text-center text-xs font-bold text-slate-400 shadow-sm">
+                  Loading community timeline feed...
                 </div>
               ) : feed.length ? (
                 feed.map((post) => {
@@ -573,32 +582,33 @@ const PublicSpacePage = () => {
                   return (
                     <div
                       key={post._id}
-                      className="rounded-3xl bg-white p-6 shadow-sm"
+                      className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm hover:shadow-md hover:shadow-slate-50 transition-all duration-300"
                     >
+                      {/* Author Details Header */}
                       <div className="flex items-center gap-3">
                         {post.author.photo ? (
                           <img
                             src={post.author.photo}
                             alt={post.author.name}
-                            className="h-12 w-12 rounded-full object-cover"
+                            className="h-11 w-11 rounded-full object-cover border border-slate-100 shadow-sm"
                           />
                         ) : (
-                          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-blue-100 font-semibold text-blue-700">
+                          <div className="flex h-11 w-11 items-center justify-center rounded-full bg-blue-50 font-bold text-blue-600 text-sm border border-blue-100">
                             {post.author.name?.charAt(0)?.toUpperCase()}
                           </div>
                         )}
                         <div>
-                          <h3 className="font-semibold text-gray-900">
+                          <h3 className="font-bold text-slate-800 text-sm font-heading">
                             {post.author.name}
                           </h3>
-                          <p className="text-sm text-gray-500">
+                          <p className="text-[10px] text-slate-405 font-bold mt-0.5">
                             {new Date(post.createdAt).toLocaleString()}
                           </p>
                         </div>
                       </div>
 
                       {post.text ? (
-                        <p className="mt-4 whitespace-pre-wrap text-gray-700">
+                        <p className="mt-4 whitespace-pre-wrap text-xs sm:text-sm text-slate-650 leading-relaxed">
                           {post.text}
                         </p>
                       ) : null}
@@ -608,19 +618,19 @@ const PublicSpacePage = () => {
                           {post.media.map((item, index) => (
                             <div
                               key={`${post._id}-media-${index}`}
-                              className="overflow-hidden rounded-2xl border border-slate-200"
+                              className="overflow-hidden rounded-xl border border-slate-150 bg-slate-50"
                             >
                               {item.type === "image" ? (
                                 <img
                                   src={item.url}
                                   alt={item.name || "Post media"}
-                                  className="h-72 w-full object-cover"
+                                  className="h-60 w-full object-cover"
                                 />
                               ) : (
                                 <video
                                   src={item.url}
                                   controls
-                                  className="h-72 w-full object-cover"
+                                  className="h-60 w-full object-cover"
                                 />
                               )}
                             </div>
@@ -628,38 +638,42 @@ const PublicSpacePage = () => {
                         </div>
                       ) : null}
 
-                      <div className="mt-5 flex flex-wrap gap-3 text-sm">
+                      {/* Action buttons row */}
+                      <div className="mt-6 pt-4 border-t border-slate-100 flex flex-wrap gap-2 text-xs">
                         <button
                           type="button"
                           onClick={() => handleLike(post._id)}
-                          className={`inline-flex items-center gap-2 rounded-full px-4 py-2 ${
+                          className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 font-bold transition-colors ${
                             likedByCurrentUser
-                              ? "bg-rose-50 text-rose-600"
-                              : "bg-slate-100 text-slate-700"
+                              ? "bg-rose-50 text-rose-600 border border-rose-100"
+                              : "bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-100"
                           }`}
                         >
-                          <Heart className="h-4 w-4" />
-                          {post.likes.length} Likes
+                          <Heart className="h-3.5 w-3.5" />
+                          <span>{post.likes.length}</span>
                         </button>
+                        
                         <button
                           type="button"
-                          className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-4 py-2 text-slate-700"
+                          className="inline-flex items-center gap-1.5 rounded-xl bg-slate-55 hover:bg-slate-100 text-slate-600 border border-slate-100 px-3 py-1.5 font-bold transition-colors"
                         >
-                          <MessageCircle className="h-4 w-4" />
-                          {post.comments.length} Comments
+                          <MessageCircle className="h-3.5 w-3.5" />
+                          <span>{post.comments.length}</span>
                         </button>
+
                         <button
                           type="button"
                           onClick={() => handleShare(post._id)}
-                          className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-4 py-2 text-slate-700"
+                          className="inline-flex items-center gap-1.5 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-100 px-3 py-1.5 font-bold transition-colors ml-auto"
                         >
-                          <Share2 className="h-4 w-4" />
-                          {post.sharesCount} Shares
+                          <Share2 className="h-3.5 w-3.5" />
+                          <span>{post.sharesCount}</span>
                         </button>
                       </div>
 
-                      <div className="mt-5 rounded-2xl bg-slate-50 p-4">
-                        <div className="flex gap-3">
+                      {/* Comments section */}
+                      <div className="mt-5 rounded-2xl bg-slate-50/80 border border-slate-100 p-4">
+                        <div className="flex gap-2">
                           <input
                             type="text"
                             value={commentInputs[post._id] || ""}
@@ -670,45 +684,48 @@ const PublicSpacePage = () => {
                               }))
                             }
                             placeholder="Write a comment..."
-                            className="flex-1 rounded-2xl border border-gray-300 px-4 py-3 text-gray-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                            className="flex-1 rounded-xl border border-slate-200 px-3.5 py-2 text-xs text-slate-700 placeholder-slate-400 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500 transition-all font-semibold"
                           />
                           <button
                             type="button"
                             onClick={() => handleComment(post._id)}
-                            className="rounded-2xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white hover:bg-blue-700"
+                            className="rounded-xl bg-blue-650 px-4 py-2 text-xs font-bold text-white hover:bg-blue-700 transition-colors shadow-sm"
                           >
                             Comment
                           </button>
                         </div>
 
-                        <div className="mt-4 space-y-3">
-                          {post.comments.length ? (
-                            post.comments.map((comment) => (
+                        {post.comments.length ? (
+                          <div className="mt-4 space-y-2.5 max-h-56 overflow-y-auto pr-1">
+                            {post.comments.map((comment) => (
                               <div
                                 key={comment._id}
-                                className="rounded-2xl bg-white px-4 py-3"
+                                className="rounded-xl bg-white border border-slate-100 p-3 shadow-sm shadow-slate-50"
                               >
-                                <p className="font-medium text-gray-900">
-                                  {comment.author.name}
-                                </p>
-                                <p className="mt-1 text-sm text-gray-600">
+                                <div className="flex items-center justify-between mb-1">
+                                  <span className="font-bold text-slate-800 text-[11px] font-heading">{comment.author.name}</span>
+                                  <span className="text-[9px] text-slate-400 font-medium">
+                                    {new Date(comment.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                                  </span>
+                                </div>
+                                <p className="text-xs text-slate-650 font-semibold leading-relaxed">
                                   {comment.text}
                                 </p>
                               </div>
-                            ))
-                          ) : (
-                            <p className="text-sm text-gray-500">
-                              No comments yet. Start the conversation.
-                            </p>
-                          )}
-                        </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-[11px] text-slate-400 font-bold py-3 text-center">
+                            No comments yet. Start the conversation.
+                          </p>
+                        )}
                       </div>
                     </div>
                   );
                 })
               ) : (
-                <div className="rounded-3xl bg-white p-8 text-center text-gray-500 shadow-sm">
-                  No public posts yet. Be the first to share something.
+                <div className="rounded-2xl border border-slate-100 bg-white p-12 text-center text-xs font-bold text-slate-400 shadow-sm">
+                  No public posts yet. Be the first to share something inspiring with the community!
                 </div>
               )}
             </div>

@@ -179,157 +179,233 @@ const index = () => {
     }
   };
   return (
-    <div className="max-w-4xl mx-auto px-4 py-8">
-      <div className="bg-white rounded-lg shadow-lg overflow-hidden">
-        {/* Header Section */}
-        <div className="p-6 border-b">
-          <div className="flex items-center space-x-2 text-blue-600 mb-4">
-            <ArrowUpRight className="h-5 w-5" />
-            <span className="font-medium">Actively Hiring</span>
-          </div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            {jobdata.title}
-          </h1>
-          <p className="text-lg text-gray-600 mb-4">{jobdata.company}</p>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="flex items-center space-x-2 text-gray-600">
-              <MapPin className="h-5 w-5" />
-              <span>{jobdata.location}</span>
+    <div className="min-h-screen bg-slate-50/50 py-12 animate-slide-up">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6">
+        <div className="bg-white border border-slate-100 rounded-3xl shadow-sm overflow-hidden">
+          {/* Header Section */}
+          <div className="p-8 sm:p-10 border-b border-slate-100 relative bg-gradient-to-br from-white to-blue-50/10">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-2 text-[10px] font-bold text-blue-650 bg-blue-50 w-fit px-2.5 py-1 rounded-full border border-blue-100">
+                <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
+                <span className="uppercase tracking-wider">Actively Hiring</span>
+              </div>
+              <span className="text-[10px] font-bold text-slate-400 bg-slate-50 px-2.5 py-1 rounded-md">
+                Ref: {String(id).slice(-6).toUpperCase()}
+              </span>
             </div>
-            <div className="flex items-center space-x-2 text-gray-600">
-              <DollarSign className="h-5 w-5" />
-              <span>CTC {jobdata.CTC}</span>
+
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight mb-2 font-heading">
+              {jobdata.title}
+            </h1>
+            <p className="text-sm sm:text-base text-slate-500 font-semibold mb-8">{jobdata.company}</p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 pt-6 border-t border-slate-100">
+              <div className="flex items-center space-x-3">
+                <div className="p-2 bg-blue-50 text-blue-600 rounded-xl">
+                  <MapPin className="h-5 w-5" />
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold text-slate-405 uppercase tracking-wider">Location</p>
+                  <p className="text-xs sm:text-sm font-bold text-slate-700 mt-0.5">{jobdata.location}</p>
+                </div>
+              </div>
+
+              <div className="flex items-center space-x-3">
+                <div className="p-2 bg-blue-50 text-blue-600 rounded-xl">
+                  <DollarSign className="h-5 w-5" />
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold text-slate-405 uppercase tracking-wider">CTC (Annual)</p>
+                  <p className="text-xs sm:text-sm font-bold text-slate-700 mt-0.5">{jobdata.CTC}</p>
+                </div>
+              </div>
+
+              <div className="flex items-center space-x-3">
+                <div className="p-2 bg-blue-50 text-blue-600 rounded-xl">
+                  <Book className="h-5 w-5" />
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold text-slate-405 uppercase tracking-wider">Category</p>
+                  <p className="text-xs sm:text-sm font-bold text-slate-700 mt-0.5">{jobdata.category}</p>
+                </div>
+              </div>
             </div>
-            <div className="flex items-center space-x-2 text-gray-600">
-              <Book className="h-5 w-5" />
-              <span>{jobdata.category}</span>
+
+            <div className="mt-8 flex items-center space-x-2 bg-emerald-50/50 w-fit px-3 py-1.5 rounded-lg border border-emerald-100">
+              <Clock className="h-4 w-4 text-emerald-600 animate-pulse" />
+              <span className="text-emerald-700 text-xs font-bold">
+                Posted on {jobdata.createAt || "Recently"}
+              </span>
             </div>
           </div>
-          <div className="mt-4 flex items-center space-x-2">
-            <Clock className="h-4 w-4 text-green-500" />
-            <span className="text-green-500 text-sm">
-              Posted on {jobdata.createAt}
-            </span>
+
+          {/* Company Details */}
+          <div className="p-8 sm:p-10 border-b border-slate-100">
+            <h2 className="text-lg font-bold text-slate-900 mb-4 font-heading">
+              About {jobdata.company}
+            </h2>
+            <div className="mb-4">
+              <a
+                href="#"
+                className="text-xs font-bold text-blue-600 hover:text-blue-700 flex items-center space-x-1 w-fit group"
+              >
+                <span>Visit company website</span>
+                <ExternalLink className="h-3.5 w-3.5 transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+              </a>
+            </div>
+            <p className="text-xs sm:text-sm text-slate-600 leading-relaxed bg-slate-50 p-4 sm:p-5 rounded-2xl border border-slate-100">
+              {jobdata.aboutCompany}
+            </p>
           </div>
-        </div>
-        {/* Company Section */}
-        <div className="p-6 border-b">
-          <h2 className="text-xl font-bold text-gray-900 mb-4">
-            About {jobdata.company}
-          </h2>
-          <div className="flex items-center space-x-2 mb-4">
-            <a
-              href="#"
-              className="text-blue-600 hover:text-blue-700 flex items-center space-x-1"
+
+          {/* Job Details */}
+          <div className="p-8 sm:p-10 space-y-8 border-b border-slate-100">
+            <div>
+              <h2 className="text-lg font-bold text-slate-900 mb-3 font-heading">
+                About the Job role
+              </h2>
+              <p className="text-xs sm:text-sm text-slate-600 leading-relaxed whitespace-pre-line">
+                {jobdata.aboutJob}
+              </p>
+            </div>
+
+            <div className="p-6 bg-slate-50 rounded-2xl border border-slate-100 space-y-5">
+              <div>
+                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
+                  Who can apply
+                </h3>
+                <p className="text-xs sm:text-sm text-slate-700 font-semibold leading-relaxed">
+                  {jobdata.whoCanApply}
+                </p>
+              </div>
+
+              {jobdata.perks && (
+                <div>
+                  <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
+                    Perks
+                  </h3>
+                  <div className="flex flex-wrap gap-2">
+                    {jobdata.perks.split(",").map((perk: string, idx: number) => (
+                      <span key={idx} className="px-3 py-1 bg-white border border-slate-200 text-slate-650 rounded-lg text-xs font-medium shadow-sm animate-fade-in">
+                        {perk.trim()}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {jobdata.AdditionalInfo && (
+                <div>
+                  <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
+                    Additional Information
+                  </h3>
+                  <p className="text-xs sm:text-sm text-slate-650 font-medium">
+                    {jobdata.AdditionalInfo}
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Apply Button Footer */}
+          <div className="p-8 bg-slate-50/50 flex justify-center">
+            <button
+              onClick={() => setIsModalOpen(true)}
+              className="px-10 py-3.5 bg-blue-600 text-white text-sm font-bold rounded-2xl shadow-lg shadow-blue-150 hover:bg-blue-700 hover:shadow-xl hover:shadow-blue-200 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200"
             >
-              <span>Visit company website</span>
-              <ExternalLink className="h-4 w-4" />
-            </a>
+              Apply Now
+            </button>
           </div>
-          <p className="text-gray-600">{jobdata.aboutCompany}</p>
-        </div>
-        {/* Internship Details Section */}
-        <div className="p-6 border-b">
-          <h2 className="text-xl font-bold text-gray-900 mb-4">
-            About the Internship
-          </h2>
-          <p className="text-gray-600 mb-6">{jobdata.aboutJob}</p>
-
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">
-            Who can apply
-          </h3>
-          <p className="text-gray-600 mb-6">{jobdata.whoCanApply}</p>
-
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">Perks</h3>
-          <p className="text-gray-600 mb-6">{jobdata.perks}</p>
-
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">
-            Additional Information
-          </h3>
-          <p className="text-gray-600 mb-6">{jobdata.AdditionalInfo}</p>
-        </div>
-        {/* Apply Button */}
-        <div className="p-6 flex justify-center">
-          <button
-            onClick={() => setIsModalOpen(true)}
-            className="bg-blue-600 text-white px-8 py-3 rounded-lg hover:bg-blue-700 transition duration-150"
-          >
-            Apply Now
-          </button>
         </div>
       </div>
-      {/* Apply Modal */}
 
+      {/* Apply Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-            <div className="p-6 border-b">
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in p-4">
+          <div className="bg-white rounded-3xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-150 animate-slide-up">
+            <div className="p-6 sm:p-8 border-b border-slate-100">
               <div className="flex justify-between items-center">
-                <h2 className="text-2xl font-bold text-gray-900">
-                  Apply to {jobdata.company}
-                </h2>
+                <div>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Application form</span>
+                  <h2 className="text-xl sm:text-2xl font-bold text-slate-800 font-heading mt-0.5">
+                    Apply to {jobdata.company}
+                  </h2>
+                </div>
                 <button
                   onClick={() => setIsModalOpen(false)}
-                  className="text-gray-400 hover:text-gray-600"
+                  className="text-slate-400 hover:text-slate-600 p-1.5 hover:bg-slate-50 rounded-xl transition-colors"
                 >
-                  <X className="h-6 w-6" />
+                  <X className="h-5 w-5" />
                 </button>
               </div>
             </div>
-            <div className="p-6 space-y-6">
-              {/* Resume Section */}
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                  Your Resume
-                </h3>
-                <p className="text-gray-600">
-                  Your current resume will be submitted with the application
-                </p>
+            
+            <div className="p-6 sm:p-8 space-y-6">
+              {/* Resume Info */}
+              <div className="bg-blue-50/50 border border-blue-100 rounded-2xl p-4 flex items-start space-x-3">
+                <span className="text-blue-600 mt-0.5">📝</span>
+                <div>
+                  <h3 className="text-xs font-bold text-blue-800 uppercase tracking-wider">Your Resume</h3>
+                  <p className="text-xs text-blue-650 mt-1 leading-relaxed">
+                    Your current profile resume and career history details will be submitted dynamically with this application.
+                  </p>
+                </div>
               </div>
+
+              {/* Cover Letter Input */}
               <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                <label className="block text-xs font-bold text-slate-450 uppercase tracking-wider mb-2">
                   Cover Letter
-                </h3>
-                <p className="text-gray-600 mb-2">
-                  Why should you be selected for this internship?
+                </label>
+                <p className="text-xs text-slate-455 mb-3">
+                  Why should the hiring team select you for this position?
                 </p>
                 <textarea
                   value={coverLetter}
                   onChange={(e) => setCoverLetter(e.target.value)}
-                  className="w-full h-32 p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 text-black"
-                  placeholder="Write your cover letter here..."
-                ></textarea>
+                  className="w-full h-36 p-4 border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-xs sm:text-sm text-slate-700 placeholder-slate-400 transition-all font-medium"
+                  placeholder="Describe your skills, experiences, and interest in this role..."
+                />
               </div>
+
+              {/* Availability Options */}
               <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                <label className="block text-xs font-bold text-slate-450 uppercase tracking-wider mb-3">
                   Your Availability
-                </h3>
-                <div className="space-y-3">
+                </label>
+                <div className="space-y-2.5">
                   {[
                     "Yes, I am available to join immediately",
                     "No, I am currently on notice period",
                     "No, I will have to serve notice period",
                     "Other",
                   ].map((option) => (
-                    <label key={option} className="flex items-center space-x-2">
+                    <label key={option} className="flex items-center space-x-3 p-3 bg-slate-50 hover:bg-slate-100/70 border border-slate-150 rounded-xl cursor-pointer transition-colors group">
                       <input
                         type="radio"
-                        name=""
-                        id=""
+                        name="availability"
                         value={option}
                         checked={availability === option}
                         onChange={(e) => setAvailability(e.target.value)}
-                        className="h-4 w-4 text-blue-600"
+                        className="h-4.5 w-4.5 text-blue-600 focus:ring-blue-500/25 border-slate-250 cursor-pointer"
                       />
-                      <span className="text-gray-700">{option}</span>
+                      <span className="text-xs sm:text-sm font-semibold text-slate-655 group-hover:text-slate-800 transition-colors">{option}</span>
                     </label>
                   ))}
                 </div>
               </div>
-              <div className="flex justify-end pt-4">
+
+              {/* Action Buttons */}
+              <div className="flex justify-end pt-4 gap-4">
+                <button
+                  onClick={() => setIsModalOpen(false)}
+                  className="px-5 py-2.5 border border-slate-200 text-xs font-bold rounded-xl text-slate-600 hover:bg-slate-55 transition-colors"
+                >
+                  Cancel
+                </button>
                 {user ? (
                   <button
-                    className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700"
+                    className="px-6 py-2.5 bg-blue-600 text-white text-xs font-bold rounded-xl hover:bg-blue-700 shadow-md shadow-blue-100 hover:shadow-lg active:scale-98 transition-all"
                     onClick={handlesubmitapplication}
                   >
                     Submit Application
@@ -337,7 +413,7 @@ const index = () => {
                 ) : (
                   <Link
                     href={`/`}
-                    className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700"
+                    className="px-6 py-2.5 bg-blue-600 text-white text-xs font-bold rounded-xl hover:bg-blue-700 shadow-md shadow-blue-100 hover:shadow-lg text-center transition-all"
                   >
                     Sign up to apply
                   </Link>

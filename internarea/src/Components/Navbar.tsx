@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/router";
 import { auth, provider } from "../firebase/firebase";
 import { Search } from "lucide-react";
 import { signInWithPopup, signOut } from "firebase/auth";
@@ -18,6 +19,7 @@ import {
 } from "@/utils/securitySession";
 
 const Navbar = () => {
+  const router = useRouter();
   const dispatch = useDispatch();
   const user = useSelector(selectuser);
   const [otpCode, setOtpCode] = useState("");
@@ -219,38 +221,61 @@ const Navbar = () => {
         </div>
       ) : null}
 
-      <nav className="bg-white shadow-md">
+      <nav className="sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b border-slate-100 transition-all duration-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16 items-center">
             {/* Logo */}
             <div className="flex-shrink-0">
-              <a href="/" className="text-xl font-bold text-blue-600">
-                <img src={"/logo.png"} alt="" className="h-16" />
+              <a href="/" className="flex items-center gap-2 text-xl font-bold text-blue-600 transition-transform hover:scale-[1.02]">
+                <img src={"/logo.png"} alt="InternArea Logo" className="h-12 object-contain" />
               </a>
             </div>
+            
             {/* Navigation Links */}
-            <div className="hidden md:flex items-center space-x-8">
-              <button className="flex items-center space-x-1 text-gray-700 hover:text-blue-600">
-                <Link href={"/internship"}>
-                  <span>Internships</span>
-                </Link>
-              </button>
-              <button className="flex items-center space-x-1 text-gray-700 hover:text-blue-600">
-                <Link href={"/job"}>
-                  <span>Jobs</span>
-                </Link>
-              </button>
-              <button className="flex items-center space-x-1 text-gray-700 hover:text-blue-600">
-                <Link href={"/public-space"}>
-                  <span>Public Space</span>
-                </Link>
-              </button>
-              <div className="flex items-center bg-gray-100 rounded-full px-4 py-2">
-                <Search size={16} className="text-gray-400" />
+            <div className="hidden md:flex items-center space-x-6">
+              <Link 
+                href={"/internship"}
+                className={`relative py-2 text-sm font-medium transition-colors duration-200 hover:text-blue-600 ${
+                  router.pathname === "/internship" ? "text-blue-600 font-semibold" : "text-slate-600"
+                }`}
+              >
+                <span>Internships</span>
+                {router.pathname === "/internship" && (
+                  <span className="absolute bottom-0 left-0 w-full h-[2px] bg-blue-600 rounded-full animate-fade-in" />
+                )}
+              </Link>
+
+              <Link 
+                href={"/job"}
+                className={`relative py-2 text-sm font-medium transition-colors duration-200 hover:text-blue-600 ${
+                  router.pathname === "/job" ? "text-blue-600 font-semibold" : "text-slate-600"
+                }`}
+              >
+                <span>Jobs</span>
+                {router.pathname === "/job" && (
+                  <span className="absolute bottom-0 left-0 w-full h-[2px] bg-blue-600 rounded-full animate-fade-in" />
+                )}
+              </Link>
+
+              <Link 
+                href={"/public-space"}
+                className={`relative py-2 text-sm font-medium transition-colors duration-200 hover:text-blue-600 ${
+                  router.pathname === "/public-space" ? "text-blue-600 font-semibold" : "text-slate-600"
+                }`}
+              >
+                <span>Public Space</span>
+                {router.pathname === "/public-space" && (
+                  <span className="absolute bottom-0 left-0 w-full h-[2px] bg-blue-600 rounded-full animate-fade-in" />
+                )}
+              </Link>
+
+              {/* Modernized Search Input */}
+              <div className="flex items-center bg-slate-50 border border-slate-200 rounded-full px-3 py-1.5 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-100 transition-all duration-200">
+                <Search size={14} className="text-slate-400" />
                 <input
                   type="text"
                   placeholder="Search opportunities..."
-                  className="ml-2 bg-transparent focus:outline-none text-sm w-48"
+                  className="ml-2 bg-transparent text-slate-800 focus:outline-none text-xs w-40"
                 />
               </div>
             </div>
@@ -258,32 +283,35 @@ const Navbar = () => {
             {/* Auth Buttons */}
             <div className="flex items-center space-x-4">
               {user ? (
-                <div className="relative flex">
-                  <button className="flex items-center space-x-2">
-                    {" "}
-                    <Link href={"/profile"}>
-                      <img
-                        src={user.photo}
-                        alt=""
-                        className="w-8 h-8 rounded-full"
-                      />
-                    </Link>
-                  </button>
+                <div className="flex items-center gap-3">
+                  <Link 
+                    href={"/profile"}
+                    className="group relative flex items-center p-0.5 rounded-full border border-slate-200 hover:border-blue-500 transition-colors"
+                  >
+                    <img
+                      src={user.photo}
+                      alt={user.name || "User profile"}
+                      className="w-8 h-8 rounded-full object-cover"
+                    />
+                    <span className="absolute -bottom-8 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-[10px] px-2 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
+                      Profile
+                    </span>
+                  </Link>
                   <button
-                    className="flex items-center w-full px-4 py-2  text-gray-700  hover:bg-gray-200 rounded-lg"
+                    className="px-4 py-1.5 text-xs font-semibold text-rose-600 hover:bg-rose-50 rounded-full transition-colors border border-rose-100"
                     onClick={handlelogout}
                   >
                     Logout
                   </button>
                 </div>
               ) : (
-                <>
+                <div className="flex items-center gap-3">
                   <button
                     onClick={handlelogin}
                     disabled={isSigningIn}
-                    className="w-full bg-white border border-gray-300 rounded-lg px-4 py-2 flex items-center justify-center space-x-2 hover:bg-gray-50 "
+                    className="flex items-center justify-center gap-2 bg-white border border-slate-200 hover:border-blue-500 hover:bg-blue-50/10 px-4 py-2 rounded-full text-xs font-semibold transition-all duration-200 disabled:opacity-50"
                   >
-                    <svg className="w-5 h-5" viewBox="0 0 24 24">
+                    <svg className="w-4 h-4" viewBox="0 0 24 24">
                       <path
                         fill="#4285F4"
                         d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
@@ -301,20 +329,20 @@ const Navbar = () => {
                         d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
                       />
                     </svg>
-                    <span className="text-gray-700">
-                      {isSigningIn ? "Signing in..." : "Continue with google"}
+                    <span className="text-slate-700">
+                      {isSigningIn ? "Signing in..." : "Continue with Google"}
                     </span>
                   </button>
-                  <a
+                  <Link
                     href="/adminlogin"
-                    className="text-gray-600 hover:text-gray-800"
+                    className="text-xs font-semibold text-slate-500 hover:text-slate-800 transition-colors"
                   >
                     Admin
-                  </a>
-                </>
+                  </Link>
+                </div>
               )}
             </div>
-          </div>{" "}
+          </div>
         </div>
       </nav>
     </div>
