@@ -1,4 +1,5 @@
 const admin = require("firebase-admin");
+const { getAuth } = require("firebase-admin/auth");
 const jwt = require("jsonwebtoken");
 
 // Initialize Firebase Admin if not already initialized
@@ -26,7 +27,7 @@ const authMiddleware = async (req, res, next) => {
   try {
     // 1. Try to verify as Firebase ID Token
     try {
-      const decodedToken = await admin.auth().verifyIdToken(token);
+      const decodedToken = await getAuth().verifyIdToken(token);
       req.user = decodedToken;
       return next();
     } catch (firebaseError) {
