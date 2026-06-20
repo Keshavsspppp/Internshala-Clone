@@ -3,8 +3,12 @@ const jwt = require("jsonwebtoken");
 
 // Initialize Firebase Admin if not already initialized
 if (admin.apps.length === 0) {
+  const firebaseProjectId = process.env.FIREBASE_PROJECT_ID;
+  if (!firebaseProjectId) {
+    throw new Error("FIREBASE_PROJECT_ID env var is required");
+  }
   admin.initializeApp({
-    projectId: process.env.FIREBASE_PROJECT_ID || "internarea-80bb2"
+    projectId: firebaseProjectId
   });
 }
 

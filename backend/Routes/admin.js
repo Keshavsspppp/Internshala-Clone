@@ -47,11 +47,12 @@ const isSameDay = (firstDate, secondDate) => {
     return false;
   }
 
-  return (
-    firstDate.getFullYear() === secondDate.getFullYear() &&
-    firstDate.getMonth() === secondDate.getMonth() &&
-    firstDate.getDate() === secondDate.getDate()
-  );
+  const toISTDateString = (d) => {
+    const ist = new Date(d.getTime() + 5.5 * 3600000);
+    return ist.toISOString().slice(0, 10); // "YYYY-MM-DD"
+  };
+
+  return toISTDateString(firstDate) === toISTDateString(secondDate);
 };
 
 const normalizePhone = (phone = "") => phone.replace(/\D/g, "");
