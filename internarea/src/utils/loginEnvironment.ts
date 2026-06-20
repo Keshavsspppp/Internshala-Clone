@@ -16,9 +16,10 @@ const classifyDeviceType = (
     return "mobile";
   }
 
-  // Distinguish laptop vs desktop by screen width on client
-  if (typeof window !== "undefined") {
-    return window.innerWidth <= 1440 ? "laptop" : "desktop";
+  // Distinguish laptop vs desktop by presence of battery API
+  if (typeof window !== "undefined" && typeof navigator !== "undefined") {
+    const hasBattery = "getBattery" in navigator || ("battery" in navigator);
+    return hasBattery ? "laptop" : "desktop";
   }
 
   return "desktop";

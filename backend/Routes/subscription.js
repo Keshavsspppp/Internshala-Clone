@@ -3,6 +3,7 @@ const crypto = require("crypto");
 const Razorpay = require("razorpay");
 const { sendInvoiceEmail } = require("../utils/mailer");
 const authMiddleware = require("../middleware/auth");
+const UserSubscription = require("../Model/UserSubscription");
 
 const router = express.Router();
 
@@ -33,9 +34,10 @@ router.post("/create-order", authMiddleware, async (req, res) => {
   }
 
   const { amount } = req.body;
-  if (!amount || isNaN(amount) || amount <= 0) {
+  const VALID_AMOUNTS = [100, 300, 1000];
+  if (!amount || isNaN(amount) || !VALID_AMOUNTS.includes(Number(amount))) {
     return res.status(400).json({
-      message: "A valid amount is required."
+      message: "Invalid plan amount."
     });
   }
 
@@ -92,6 +94,28 @@ router.post("/verify-payment", authMiddleware, async (req, res) => {
       orderId: razorpay_order_id,
       paymentId: razorpay_payment_id
     });
+
+    const planMapping = {
+      100: "Bronze",
+      300: "Silver",
+      1000: "Gold"
+    };
+    const planName = planMapping[Number(amount)] || "Standard";
+
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 30);
+
+    await UserSubscription.findOneAndUpdate(
+      { userEmail: String(email).trim().toLowerCase() },
+      {
+        planName,
+        paymentId: razorpay_payment_id,
+        orderId: razorpay_order_id,
+        amount: Number(amount),
+        expiresAt
+      },
+      { upsert: true, new: true }
+    );
 
     return res.status(200).json({
       success: true,
