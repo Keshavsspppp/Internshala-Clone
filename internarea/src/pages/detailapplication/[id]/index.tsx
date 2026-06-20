@@ -6,8 +6,8 @@ import React, { useEffect, useState } from "react";
 const index = () => {
   const router = useRouter();
   const { id } = router.query;
-  const [loading, setloading] = useState(false);
-  const [data, setdata] = useState<any>([]);
+  const [loading, setloading] = useState(true);
+  const [data, setdata] = useState<any>(null);
   useEffect(() => {
     const fetchdata = async () => {
       try {
@@ -27,7 +27,7 @@ const index = () => {
       fetchdata();
     }
   }, [id]);
-  if (loading) {
+  if (loading || !data || Object.keys(data).length === 0) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-blue-600" />

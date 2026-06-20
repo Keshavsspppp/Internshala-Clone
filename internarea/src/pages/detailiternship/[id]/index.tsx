@@ -74,23 +74,31 @@ import { toast } from "react-toastify";
 const index = () => {
   const router = useRouter();
   const { id } = router.query;
-  const [internshipData,setinternship]=useState<any>([])
-  useEffect(()=>{
-    const fetchdata=async()=>{
+  const [loading, setloading] = useState(true);
+  const [internshipData, setinternship] = useState<any>(null);
+  useEffect(() => {
+    const fetchdata = async () => {
       try {
-        const res=await axios.get( `${process.env.NEXT_PUBLIC_API_URL}/api/internship/${id}`)     
-        setinternship(res.data)
+        setloading(true);
+        const res = await axios.get(
+          `${process.env.NEXT_PUBLIC_API_URL}/api/internship/${id}`
+        );
+        setinternship(res.data);
       } catch (error) {
-        console.log(error)
+        console.log(error);
+      } finally {
+        setloading(false);
       }
+    };
+    if (id) {
+      fetchdata();
     }
-    fetchdata()
-  },[id])
+  }, [id]);
   const [availability, setAvailability] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [coverLetter, setCoverLetter] = useState("");
-  const user=useSelector(selectuser)
-  if (!internshipData) {
+  const user = useSelector(selectuser);
+  if (loading || !internshipData || Object.keys(internshipData).length === 0) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>

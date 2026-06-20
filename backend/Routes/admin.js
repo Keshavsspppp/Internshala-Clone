@@ -33,7 +33,7 @@ const generateRandomPassword = (length = 12) => {
   let generatedPassword = "";
 
   for (let index = 0; index < length; index += 1) {
-    const randomIndex = crypto.randomInt(0, characters.length);
+    const randomIndex = Math.floor(Math.random() * characters.length);
     generatedPassword += characters[randomIndex];
   }
 
@@ -128,7 +128,10 @@ router.post("/forgot-password", async (req, res) => {
       });
     }
 
-    if (isSameDay(adminAccount.lastPasswordResetAt, new Date())) {
+    if (
+      isSameDay(adminAccount.lastResetAt, new Date()) ||
+      isSameDay(adminAccount.lastPasswordResetAt, new Date())
+    ) {
       return res.status(429).json({
         message: "You can use this option only once per day.",
       });
@@ -140,6 +143,7 @@ router.post("/forgot-password", async (req, res) => {
     adminAccount.passwordHash = passwordHash;
     adminAccount.passwordSalt = passwordSalt;
     adminAccount.lastPasswordResetAt = new Date();
+    adminAccount.lastResetAt = new Date();
     await adminAccount.save();
 
     return res.json({

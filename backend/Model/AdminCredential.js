@@ -33,6 +33,10 @@ const AdminCredentialSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    lastResetAt: {
+      type: Date,
+      default: null,
+    },
   },
   {
     timestamps: true,

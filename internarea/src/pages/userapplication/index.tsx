@@ -62,19 +62,31 @@ const index = () => {
   const [data, setdata] = useState<any>([]);
   useEffect(() => {
     const fetchdata = async () => {
+      if (!user?.uid && !user?.email) {
+        setdata([]);
+        return;
+      }
       try {
-        const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/api/application`);
+        const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/api/application`, {
+          params: {
+            uid: user?.uid,
+            email: user?.email,
+          }
+        });
         setdata(res.data);
       } catch (error) {
         console.log(error);
       }
     };
     fetchdata();
-  }, []);
+  }, [user?.uid, user?.email]);
+
   const userapplication = data.filter(
-    (app:any) => app.user?.name === user?.name
+    (app: any) =>
+      app.user?.uid === user?.uid ||
+      (app.user?.email && user?.email && app.user.email.toLowerCase() === user.email.toLowerCase())
   );
-  const filteredapplications = userapplication.filter((application:any) => {
+  const filteredapplications = userapplication.filter((application: any) => {
     const searchmatch =
       application.company.toLowerCase().includes(searchTerm.toLowerCase()) ||
       application.category.toLowerCase().includes(searchTerm.toLowerCase());

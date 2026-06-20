@@ -8,7 +8,11 @@ const port = process.env.PORT || 5000;
 
 // CORS configuration
 const corsOptions = {
-  origin: "*",
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    callback(null, origin);
+  },
   credentials: true,
   optionsSuccessStatus: 200,
 };

@@ -120,23 +120,29 @@ const index = () => {
   const user=useSelector(selectuser)
   const router = useRouter();
   const { id } = router.query;
-  const [jobdata, setjob] = useState<any>([]);
+  const [loading, setloading] = useState(true);
+  const [jobdata, setjob] = useState<any>(null);
   useEffect(() => {
     const fetchdata = async () => {
       try {
+        setloading(true);
         const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/api/job/${id}`);
         setjob(res.data);
       } catch (error) {
         console.log(error);
+      } finally {
+        setloading(false);
       }
     };
-    fetchdata();
+    if (id) {
+      fetchdata();
+    }
   }, [id]);
 
   const [availability, setAvailability] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [coverLetter, setCoverLetter] = useState("");
-  if (!jobdata) {
+  if (loading || !jobdata || Object.keys(jobdata).length === 0) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>

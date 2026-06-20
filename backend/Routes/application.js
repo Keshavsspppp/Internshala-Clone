@@ -22,11 +22,18 @@ router.post("/", async (req, res) => {
 });
 router.get("/", async (req, res) => {
   try {
-    const data = await application.find();
+    const { uid, email } = req.query;
+    let query = {};
+    if (uid) {
+      query["user.uid"] = uid;
+    } else if (email) {
+      query["user.email"] = String(email).trim().toLowerCase();
+    }
+    const data = await application.find(query);
     res.json(data).status(200);
   } catch (error) {
     console.log(error);
-    res.status(404).json({ error: "internal server error" });
+    res.status(500).json({ error: "internal server error" });
   }
 });
 router.get("/:id", async (req, res) => {

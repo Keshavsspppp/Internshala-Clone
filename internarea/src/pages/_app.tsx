@@ -9,25 +9,40 @@ import { auth } from "@/firebase/firebase";
 import { login, logout } from "@/Feature/Userslice";
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import {
+  clearPendingOtpSession,
+  clearVerifiedSession,
+  getVerifiedSession,
+} from "@/utils/securitySession";
 export default function App({ Component, pageProps }: AppProps) {
   function AuthListener() {
     const dispatch = useDispatch();
     useEffect(() => {
-      auth.onAuthStateChanged((authuser) => {
+      const unsubscribe = auth.onAuthStateChanged((authuser) => {
         if (authuser) {
-          dispatch(
-            login({
-              uid: authuser.uid,
-              photo: authuser.photoURL,
-              name: authuser.displayName,
-              email: authuser.email,
-              phoneNumber: authuser.phoneNumber,
-            })
-          );
+          const verifiedSession = getVerifiedSession();
+
+          if (verifiedSession?.uid === authuser.uid) {
+            dispatch(
+              login({
+                uid: authuser.uid,
+                photo: verifiedSession.photo || authuser.photoURL,
+                name: verifiedSession.name || authuser.displayName,
+                email: verifiedSession.email || authuser.email,
+                phoneNumber: verifiedSession.phoneNumber || authuser.phoneNumber,
+              })
+            );
+          } else {
+            dispatch(logout());
+          }
         } else {
+          clearVerifiedSession();
+          clearPendingOtpSession();
           dispatch(logout());
         }
       });
+
+      return () => unsubscribe();
     }, [dispatch]);
     return null;
   }
