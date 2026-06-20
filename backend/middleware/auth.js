@@ -27,7 +27,11 @@ const authMiddleware = async (req, res, next) => {
       return next();
     } catch (firebaseError) {
       // 2. If Firebase verification fails, check if it's an Admin JWT
-      const adminSecret = process.env.ADMIN_JWT_SECRET || "super-secret-admin-key";
+      const adminSecret = process.env.ADMIN_JWT_SECRET;
+      if (!adminSecret) {
+        console.error("ADMIN_JWT_SECRET env var is required");
+        return res.status(500).json({ error: "Internal server error. Session verification misconfigured." });
+      }
       try {
         const decodedAdmin = jwt.verify(token, adminSecret);
         if (decodedAdmin.role === "admin") {

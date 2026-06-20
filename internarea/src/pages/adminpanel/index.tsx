@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useEffect } from 'react'
 import { 
   Briefcase, 
   Mail, 
@@ -8,7 +8,17 @@ import {
   Settings
 } from 'lucide-react';
 import Link from 'next/link';
+import { useRouter } from 'next/router';
+
 const AdminPanelPage = () => {
+    const router = useRouter();
+    
+    useEffect(() => {
+      const token = localStorage.getItem("adminToken");
+      if (!token) {
+        router.replace("/adminlogin");
+      }
+    }, [router]);
     const stats = [
         { label: 'Total Applications', value: '2,345', change: '+12%', changeType: 'positive' },
         { label: 'Active Jobs', value: '45', change: '+3%', changeType: 'positive' },

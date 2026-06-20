@@ -27,14 +27,13 @@ const getClientIp = (req) => {
   return String(req.socket?.remoteAddress || "");
 };
 
-const getCurrentHour = () => {
-  return new Date().getHours();
+const getISTHour = () => {
+  const nowUTC = Date.now() + new Date().getTimezoneOffset() * 60000;
+  return new Date(nowUTC + 3600000 * 5.5).getHours();
 };
 
 const isMobileAllowedRightNow = () => {
-  const istOffset = 5.5 * 60 * 60 * 1000;
-  const istHour = new Date(Date.now() + istOffset).getUTCHours();
-  return istHour >= 10 && istHour < 13;
+  return getISTHour() >= 10 && getISTHour() < 13;
 };
 
 const createOtpHash = (otp) => {

@@ -166,7 +166,7 @@ router.post("/friends", authMiddleware, async (req, res) => {
   }
 });
 
-router.get("/feed", async (req, res) => {
+router.get("/feed", authMiddleware, async (req, res) => {
   try {
     const posts = await PublicPost.find().sort({ createdAt: -1 });
     return res.status(200).json(posts);

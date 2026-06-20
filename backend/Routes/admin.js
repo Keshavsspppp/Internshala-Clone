@@ -96,9 +96,14 @@ router.post("/adminlogin", async (req, res) => {
       return res.status(401).send("Unauthorized");
     }
 
+    const adminSecret = process.env.ADMIN_JWT_SECRET;
+    if (!adminSecret) {
+      throw new Error("ADMIN_JWT_SECRET env var is required");
+    }
+
     const token = jwt.sign(
       { username: adminAccount.username, role: "admin" },
-      process.env.ADMIN_JWT_SECRET || "super-secret-admin-key",
+      adminSecret,
       { expiresIn: "7d" }
     );
 

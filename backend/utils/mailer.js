@@ -93,7 +93,7 @@ const sendInvoiceEmail = async ({ to, amount, orderId, paymentId }) => {
 const sendPasswordEmail = async ({ to, newPassword }) => {
   if (!hasSmtpConfig()) {
     console.warn(
-      `SMTP is not configured. New password for admin (${to}): ${newPassword}. Configure SMTP_* env vars to send real emails.`
+      `SMTP not configured. Password reset for ${to} was generated but not delivered. Set SMTP_* env vars.`
     );
     return {
       delivered: false,
