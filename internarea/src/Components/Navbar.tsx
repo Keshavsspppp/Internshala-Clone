@@ -167,6 +167,9 @@ const Navbar = () => {
     setOtpCode("");
     dispatch(logout());
     await signOut(auth).catch(() => null);
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("adminToken");
+    }
   };
 
   const handlelogout = async () => {
@@ -176,6 +179,9 @@ const Navbar = () => {
     setOtpCode("");
     dispatch(logout());
     await signOut(auth);
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("adminToken");
+    }
   };
 
   return (

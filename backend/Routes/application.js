@@ -1,9 +1,10 @@
 const express = require("express");
 const router = express.Router();
 const application = require("../Model/Application");
+const authMiddleware = require("../middleware/auth");
 
 // POST / — Create new application
-router.post("/", async (req, res) => {
+router.post("/", authMiddleware, async (req, res) => {
   try {
     const applicationData = new application({
       company: req.body.company,
@@ -55,7 +56,7 @@ router.get("/:id", async (req, res) => {
 });
 
 // PUT /:id — Accept or reject application
-router.put("/:id", async (req, res) => {
+router.put("/:id", authMiddleware, async (req, res) => {
   const { id } = req.params;
   const { action } = req.body;
 

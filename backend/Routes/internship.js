@@ -1,9 +1,10 @@
 const express = require("express");
 const router = express.Router();
 const Internship = require("../Model/Internship");
+const authMiddleware = require("../middleware/auth");
 
 // POST / — Create new internship
-router.post("/", async (req, res) => {
+router.post("/", authMiddleware, async (req, res) => {
   try {
     const internshipData = new Internship({
       title: req.body.title,

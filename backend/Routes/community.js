@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const CommunityUser = require("../Model/CommunityUser");
 const PublicPost = require("../Model/PublicPost");
+const authMiddleware = require("../middleware/auth");
 
 const normalizeEmail = (email = "") => String(email).trim().toLowerCase();
 const normalizeUserKey = (value = "") => String(value).trim().toLowerCase();
@@ -86,7 +87,7 @@ const ensureCommunityUser = async (user = {}) => {
   return profile;
 };
 
-router.post("/profile", async (req, res) => {
+router.post("/profile", authMiddleware, async (req, res) => {
   try {
     const profile = await ensureCommunityUser(req.body.user);
     const serializedProfile = await serializeProfile(profile);
@@ -99,7 +100,7 @@ router.post("/profile", async (req, res) => {
   }
 });
 
-router.post("/friends", async (req, res) => {
+router.post("/friends", authMiddleware, async (req, res) => {
   const { user, friend } = req.body;
 
   try {
@@ -177,7 +178,7 @@ router.get("/feed", async (req, res) => {
   }
 });
 
-router.post("/posts", async (req, res) => {
+router.post("/posts", authMiddleware, async (req, res) => {
   const { user, text, media = [] } = req.body;
 
   try {
@@ -240,7 +241,7 @@ router.post("/posts", async (req, res) => {
   }
 });
 
-router.post("/posts/:id/like", async (req, res) => {
+router.post("/posts/:id/like", authMiddleware, async (req, res) => {
   const { id } = req.params;
 
   try {
@@ -273,7 +274,7 @@ router.post("/posts/:id/like", async (req, res) => {
   }
 });
 
-router.post("/posts/:id/comment", async (req, res) => {
+router.post("/posts/:id/comment", authMiddleware, async (req, res) => {
   const { id } = req.params;
   const text = String(req.body.text || "").trim();
 
@@ -315,7 +316,7 @@ router.post("/posts/:id/comment", async (req, res) => {
   }
 });
 
-router.post("/posts/:id/share", async (req, res) => {
+router.post("/posts/:id/share", authMiddleware, async (req, res) => {
   const { id } = req.params;
 
   try {

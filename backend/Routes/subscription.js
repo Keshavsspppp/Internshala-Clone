@@ -2,6 +2,7 @@ const express = require("express");
 const crypto = require("crypto");
 const Razorpay = require("razorpay");
 const { sendInvoiceEmail } = require("../utils/mailer");
+const authMiddleware = require("../middleware/auth");
 
 const router = express.Router();
 
@@ -24,7 +25,7 @@ const isPaymentTimeRestricted = () => {
 };
 
 // Create a Razorpay order
-router.post("/create-order", async (req, res) => {
+router.post("/create-order", authMiddleware, async (req, res) => {
   if (isPaymentTimeRestricted()) {
     return res.status(403).json({
       message: "Payments only allowed between 10–11 AM IST"
@@ -56,7 +57,7 @@ router.post("/create-order", async (req, res) => {
 });
 
 // Verify signature and send invoice email
-router.post("/verify-payment", async (req, res) => {
+router.post("/verify-payment", authMiddleware, async (req, res) => {
   if (isPaymentTimeRestricted()) {
     return res.status(403).json({
       message: "Payments only allowed between 10–11 AM IST"

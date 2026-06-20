@@ -31,6 +31,9 @@ const index = () => {
         `${process.env.NEXT_PUBLIC_API_URL}/api/admin/adminlogin`,
         formadata
       );
+      if (res.data.token) {
+        localStorage.setItem("adminToken", res.data.token);
+      }
       toast.success("Logged in successfully.");
       router.push("/adminpanel");
     } catch (error) {

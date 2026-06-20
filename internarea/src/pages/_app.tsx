@@ -5,6 +5,7 @@ import type { AppProps } from "next/app";
 import { store } from "../store/store";
 import { Provider, useDispatch } from "react-redux";
 import { useEffect } from "react";
+import axios from "axios";
 import { auth } from "@/firebase/firebase";
 import { login, logout } from "@/Feature/Userslice";
 import { ToastContainer } from 'react-toastify';
@@ -15,6 +16,35 @@ import {
   getVerifiedSession,
 } from "@/utils/securitySession";
 export default function App({ Component, pageProps }: AppProps) {
+  useEffect(() => {
+    const requestInterceptor = axios.interceptors.request.use(
+      async (config) => {
+        const currentUser = auth.currentUser;
+        if (currentUser) {
+          try {
+            const token = await currentUser.getIdToken();
+            config.headers.Authorization = `Bearer ${token}`;
+          } catch (e) {
+            console.error("Error retrieving Firebase ID token:", e);
+          }
+        } else {
+          const adminToken = typeof window !== "undefined" ? localStorage.getItem("adminToken") : null;
+          if (adminToken) {
+            config.headers.Authorization = `Bearer ${adminToken}`;
+          }
+        }
+        return config;
+      },
+      (error) => {
+        return Promise.reject(error);
+      }
+    );
+
+    return () => {
+      axios.interceptors.request.eject(requestInterceptor);
+    };
+  }, []);
+
   function AuthListener() {
     const dispatch = useDispatch();
     useEffect(() => {
