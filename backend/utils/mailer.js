@@ -54,10 +54,10 @@ const sendOtpEmail = async ({ to, otp, browser, deviceType, operatingSystem }) =
   return { delivered: true };
 };
 
-const sendInvoiceEmail = async ({ to, amount, orderId, paymentId }) => {
+const sendInvoiceEmail = async ({ to, amount, orderId, paymentId, planName }) => {
   if (!hasSmtpConfig()) {
     console.warn(
-      `SMTP is not configured. Invoice for ${to} of amount INR ${amount} not sent. Configure SMTP_* env vars to send real emails.`
+      `SMTP is not configured. Invoice for ${to} of amount INR ${amount} (${planName || "Standard"} Plan) not sent. Configure SMTP_* env vars to send real emails.`
     );
     return {
       delivered: false,
@@ -75,6 +75,7 @@ const sendInvoiceEmail = async ({ to, amount, orderId, paymentId }) => {
       "",
       "Thank you for choosing InternArea! Here is your payment invoice.",
       "",
+      `Plan: ${planName || "Standard"}`,
       `Order ID: ${orderId}`,
       `Payment ID: ${paymentId}`,
       `Amount Paid: INR ${amount}`,

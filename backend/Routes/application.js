@@ -2,10 +2,35 @@ const express = require("express");
 const router = express.Router();
 const application = require("../Model/Application");
 const authMiddleware = require("../middleware/auth");
+const UserSubscription = require("../Model/UserSubscription");
 
 // POST / — Create new application
 router.post("/", authMiddleware, async (req, res) => {
+  const userEmail = req.body.user?.email?.toLowerCase();
+  if (!userEmail) {
+    return res.status(400).json({ error: "User email is required to submit an application." });
+  }
+
   try {
+    const sub = await UserSubscription.findOne({
+      userEmail,
+      expiresAt: { $gt: new Date() }
+    });
+    const limits = { Free: 1, Bronze: 3, Silver: 5, Gold: Infinity };
+    const limit = limits[sub?.planName] ?? limits.Free;
+
+    const startOfMonth = new Date(new Date().setDate(1));
+    startOfMonth.setHours(0, 0, 0, 0);
+
+    const used = await application.countDocuments({
+      "user.email": userEmail,
+      createdAt: { $gte: startOfMonth }
+    });
+
+    if (used >= limit) {
+      return res.status(403).json({ message: "Monthly application limit reached. Upgrade your plan." });
+    }
+
     const applicationData = new application({
       company: req.body.company,
       category: req.body.category,

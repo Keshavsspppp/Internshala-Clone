@@ -87,20 +87,21 @@ router.post("/verify-payment", authMiddleware, async (req, res) => {
       });
     }
 
-    // Send invoice details via Nodemailer
-    await sendInvoiceEmail({
-      to: email,
-      amount: amount || 0,
-      orderId: razorpay_order_id,
-      paymentId: razorpay_payment_id
-    });
-
     const planMapping = {
       100: "Bronze",
       300: "Silver",
       1000: "Gold"
     };
     const planName = planMapping[Number(amount)] || "Standard";
+
+    // Send invoice details via Nodemailer
+    await sendInvoiceEmail({
+      to: email,
+      amount: amount || 0,
+      orderId: razorpay_order_id,
+      paymentId: razorpay_payment_id,
+      planName
+    });
 
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 30);

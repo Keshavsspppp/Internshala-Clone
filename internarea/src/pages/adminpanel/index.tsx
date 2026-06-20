@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react'
+import React, { useEffect, useState } from 'react'
 import { 
   Briefcase, 
   Mail, 
@@ -9,20 +9,40 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
+import axios from 'axios';
 
 const AdminPanelPage = () => {
     const router = useRouter();
+    const [counts, setCounts] = useState({ apps: 0, jobs: 0, internships: 0 });
     
     useEffect(() => {
       const token = localStorage.getItem("adminToken");
       if (!token) {
         router.replace("/adminlogin");
+        return;
       }
+
+      Promise.all([
+        axios.get(`${process.env.NEXT_PUBLIC_API_URL}/api/application`),
+        axios.get(`${process.env.NEXT_PUBLIC_API_URL}/api/job`),
+        axios.get(`${process.env.NEXT_PUBLIC_API_URL}/api/internship`)
+      ])
+        .then(([apps, jobs, interns]) => {
+          setCounts({
+            apps: apps.data.length,
+            jobs: jobs.data.length,
+            internships: interns.data.length
+          });
+        })
+        .catch((err) => {
+          console.error("Error fetching stats:", err);
+        });
     }, [router]);
+
     const stats = [
-        { label: 'Total Applications', value: '2,345', change: '+12%', changeType: 'positive' },
-        { label: 'Active Jobs', value: '45', change: '+3%', changeType: 'positive' },
-        { label: 'Active Internships', value: '89', change: '+24%', changeType: 'positive' },
+        { label: 'Total Applications', value: String(counts.apps), change: '+12%', changeType: 'positive' },
+        { label: 'Active Jobs', value: String(counts.jobs), change: '+3%', changeType: 'positive' },
+        { label: 'Active Internships', value: String(counts.internships), change: '+24%', changeType: 'positive' },
         { label: 'Conversion Rate', value: '5.25%', change: '-1.3%', changeType: 'negative' },
       ];
     

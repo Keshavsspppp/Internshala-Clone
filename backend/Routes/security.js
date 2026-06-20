@@ -33,7 +33,8 @@ const getISTHour = () => {
 };
 
 const isMobileAllowedRightNow = () => {
-  return getISTHour() >= 10 && getISTHour() < 13;
+  const h = getISTHour();
+  return h >= 10 && h < 13;
 };
 
 const createOtpHash = (otp) => {
