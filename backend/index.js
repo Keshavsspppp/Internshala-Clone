@@ -7,13 +7,16 @@ const { connect } = require("./db");
 const router = require("./Routes/index");
 const port = process.env.PORT || 5000;
 
-const allowedOrigins = process.env.ALLOWED_ORIGINS
+const envOrigins = process.env.ALLOWED_ORIGINS
   ? process.env.ALLOWED_ORIGINS.split(",").map(o => o.trim())
-  : [
-      "http://localhost:3000",
-      "http://localhost:5173",
-      "https://internshala-clone-kappa.vercel.app"
-    ];
+  : [];
+
+const allowedOrigins = [
+  "http://localhost:3000",
+  "http://localhost:5173",
+  "https://internshala-clone-kappa.vercel.app",
+  ...envOrigins
+];
 
 // Middleware to collapse double slashes in request URLs (e.g. //api/internship -> /api/internship)
 // to prevent route matching and CORS failures when the frontend API URL has a trailing slash.
