@@ -11,6 +11,15 @@ const allowedOrigins = process.env.ALLOWED_ORIGINS
   ? process.env.ALLOWED_ORIGINS.split(",")
   : ["http://localhost:3000", "http://localhost:5173"];
 
+// Middleware to collapse double slashes in request URLs (e.g. //api/internship -> /api/internship)
+// to prevent route matching and CORS failures when the frontend API URL has a trailing slash.
+app.use((req, res, next) => {
+  if (req.url && req.url.includes("//")) {
+    req.url = req.url.replace(/\/{2,}/g, "/");
+  }
+  next();
+});
+
 // CORS configuration
 const corsOptions = {
   origin: function (origin, callback) {
