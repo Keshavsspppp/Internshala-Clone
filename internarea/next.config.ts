@@ -6,6 +6,8 @@ const nextConfig: NextConfig = {
     locales: ['en', 'es', 'hi', 'pt', 'zh', 'fr'],
     defaultLocale: 'en',
   },
+  turbopack: {},
+
   async headers() {
     return [
       {
