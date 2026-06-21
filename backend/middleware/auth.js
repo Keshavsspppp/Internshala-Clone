@@ -32,6 +32,15 @@ if (admin.getApps().length === 0) {
     }
     privateKey = privateKey.replace(/\\n/g, '\n');
 
+    console.log("DIAGNOSTIC: privateKey length =", privateKey.length);
+    console.log("DIAGNOSTIC: startsWith BEGIN =", privateKey.startsWith("-----BEGIN PRIVATE KEY-----"));
+    console.log("DIAGNOSTIC: endsWith END =", privateKey.endsWith("-----END PRIVATE KEY-----") || privateKey.trim().endsWith("-----END PRIVATE KEY-----"));
+    console.log("DIAGNOSTIC: contains actual newlines =", privateKey.includes("\n"));
+    console.log("DIAGNOSTIC: contains escaped newlines =", privateKey.includes("\\n"));
+    console.log("DIAGNOSTIC: count of actual newlines =", privateKey.split("\n").length - 1);
+    console.log("DIAGNOSTIC: first 30 chars =", JSON.stringify(privateKey.substring(0, 30)));
+    console.log("DIAGNOSTIC: last 30 chars =", JSON.stringify(privateKey.substring(privateKey.length - 30)));
+
     credential = cert({
       projectId: firebaseProjectId,
       clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
