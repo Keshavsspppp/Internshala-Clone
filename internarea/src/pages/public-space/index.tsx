@@ -23,6 +23,8 @@ import {
   uploadBytesResumable,
   getDownloadURL,
 } from "firebase/storage";
+import { useTranslation } from "next-i18next/pages";
+import { serverSideTranslations } from "next-i18next/pages/serverSideTranslations";
 
 type CommunityFriend = {
   userKey: string;
@@ -107,6 +109,7 @@ const AvatarPlaceholder = ({
 };
 
 const PublicSpacePage = () => {
+  const { t } = useTranslation("common");
   const user = useSelector(selectuser);
   const [profile, setProfile] = useState<CommunityProfile | null>(null);
   const [feed, setFeed] = useState<CommunityPost[]>([]);
@@ -359,23 +362,23 @@ const PublicSpacePage = () => {
             <Globe className="h-8 w-8 text-blue-600" />
           </div>
           <h1 className="text-2xl font-extrabold text-slate-900 font-heading">
-            Join the Public Space
+            {t("joinPublicSpace")}
           </h1>
           <p className="mt-3 text-sm text-slate-500 leading-relaxed">
-            Sign in with Google to connect with the community, share updates, upload photos & videos, and grow your network.
+            {t("signInToConnect")}
           </p>
           <div className="mt-8 flex justify-center gap-3">
             <Link
               href="/"
               className="rounded-xl bg-blue-600 px-6 py-3 text-sm font-bold text-white hover:bg-blue-700 shadow-md shadow-blue-100 transition-all"
             >
-              Sign in &amp; Join
+              {t("signInAndJoin")}
             </Link>
             <Link
               href="/profile"
               className="rounded-xl border border-slate-200 px-6 py-3 text-sm font-bold text-slate-700 hover:bg-slate-50 transition-all"
             >
-              My Profile
+              {t("profile")}
             </Link>
           </div>
         </div>
@@ -402,29 +405,29 @@ const PublicSpacePage = () => {
           <div>
             <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-blue-100 border border-white/10 backdrop-blur-sm mb-4">
               <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              Live Community Feed
+              {t("liveCommunityFeed")}
             </span>
             <h1 className="text-3xl font-extrabold font-heading tracking-tight text-white lg:text-4xl">
-              Public Space
+              {t("publicSpace")}
             </h1>
             <p className="mt-2 max-w-lg text-sm text-blue-100/80 leading-relaxed">
-              Share updates, upload media to Firebase Storage, comment on posts, and expand connections to unlock higher daily post limits.
+              {t("psBannerDesc")}
             </p>
           </div>
           {/* Stats pills */}
           <div className="grid grid-cols-2 gap-3 min-w-[260px]">
             {[
-              { label: "Connections", value: profile?.friendsCount ?? 0 },
-              { label: "Today's posts", value: profile?.todayPosts ?? 0 },
+              { label: t("connections"), value: profile?.friendsCount ?? 0 },
+              { label: t("todayPosts"), value: profile?.todayPosts ?? 0 },
               {
-                label: "Daily limit",
+                label: t("dailyLimit"),
                 value:
                   profile?.dailyPostLimit === "unlimited"
                     ? "∞"
                     : profile?.dailyPostLimit ?? 0,
               },
               {
-                label: "Remaining",
+                label: t("remaining"),
                 value:
                   profile?.dailyPostLimit === "unlimited"
                     ? "∞"
@@ -475,10 +478,10 @@ const PublicSpacePage = () => {
               </div>
               <div className="mt-4 rounded-xl bg-amber-50/60 border border-amber-100 p-3.5 text-xs leading-relaxed text-amber-800">
                 <p className="font-bold uppercase tracking-wider text-[10px] text-amber-600 mb-1">
-                  Posting Rules
+                  {t("postingRules")}
                 </p>
                 <p>
-                  0 friends → no posts · 1 friend → 1/day · 2 → 2/day · 3–10 → same as friend count · 10+ → unlimited
+                  {t("postingRulesDesc")}
                 </p>
               </div>
             </div>
@@ -488,7 +491,7 @@ const PublicSpacePage = () => {
               <div className="flex items-center gap-2 mb-4">
                 <UserPlus className="h-4 w-4 text-blue-600" />
                 <h2 className="text-sm font-bold text-slate-800 font-heading">
-                  Add Connection
+                  {t("addConnection")}
                 </h2>
               </div>
               <form onSubmit={handleAddFriend} className="space-y-3">
@@ -498,7 +501,7 @@ const PublicSpacePage = () => {
                   onChange={(e) =>
                     setFriendForm((prev) => ({ ...prev, name: e.target.value }))
                   }
-                  placeholder="Friend's name"
+                  placeholder={t("friendNamePlaceholder")}
                   className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-xs text-slate-700 placeholder-slate-400 outline-none focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500 transition-all font-medium"
                 />
                 <input
@@ -507,7 +510,7 @@ const PublicSpacePage = () => {
                   onChange={(e) =>
                     setFriendForm((prev) => ({ ...prev, email: e.target.value }))
                   }
-                  placeholder="Friend's email"
+                  placeholder={t("friendEmailPlaceholder")}
                   className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-xs text-slate-700 placeholder-slate-400 outline-none focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500 transition-all font-medium"
                 />
                 <button
@@ -515,7 +518,7 @@ const PublicSpacePage = () => {
                   disabled={isAddingFriend}
                   className="w-full rounded-xl bg-blue-600 px-4 py-2.5 text-xs font-bold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60 transition-colors shadow-sm"
                 >
-                  {isAddingFriend ? "Adding..." : "Add Connection"}
+                  {isAddingFriend ? t("adding") : t("addConnection")}
                 </button>
               </form>
             </div>
@@ -525,7 +528,7 @@ const PublicSpacePage = () => {
               <div className="flex items-center gap-2 mb-4">
                 <Users className="h-4 w-4 text-blue-600" />
                 <h2 className="text-sm font-bold text-slate-800 font-heading">
-                  Connections
+                  {t("connections")}
                   <span className="ml-2 px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-600 text-[10px] font-bold">
                     {profile?.friendsCount ?? 0}
                   </span>
@@ -559,7 +562,7 @@ const PublicSpacePage = () => {
                   ))
                 ) : (
                   <p className="rounded-xl bg-slate-50 border border-slate-100 px-4 py-4 text-xs text-slate-400 font-medium text-center">
-                    No connections yet. Add friends to unlock posting!
+                    {t("noConnectionsYet")}
                   </p>
                 )}
               </div>
@@ -571,12 +574,12 @@ const PublicSpacePage = () => {
             {/* Create Post */}
             <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
               <h2 className="text-sm font-bold text-slate-800 font-heading mb-4">
-                Create a Post
+                {t("createPost")}
               </h2>
               <textarea
                 value={composerText}
                 onChange={(e) => setComposerText(e.target.value)}
-                placeholder="Share something inspiring with the community..."
+                placeholder={t("composerPlaceholder")}
                 rows={3}
                 className="w-full rounded-2xl border border-slate-200 p-4 text-xs sm:text-sm text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500 transition-all font-medium leading-relaxed resize-none"
               />
@@ -585,7 +588,7 @@ const PublicSpacePage = () => {
               <div className="mt-3 flex flex-wrap gap-3">
                 <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-slate-200 bg-slate-50/50 hover:bg-slate-50 px-3.5 py-2 text-xs font-bold text-slate-600 hover:text-slate-800 transition-colors">
                   <Upload className="h-3.5 w-3.5 text-blue-500" />
-                  Upload to Firebase
+                  {t("uploadToFirebase")}
                   <input
                     ref={fileInputRef}
                     type="file"
@@ -669,7 +672,7 @@ const PublicSpacePage = () => {
                 <div className="mt-4 rounded-xl bg-amber-50 border border-amber-100 px-4 py-3 flex items-start gap-2">
                   <span className="text-amber-600 mt-0.5 text-sm">⚠️</span>
                   <p className="text-xs text-amber-800 font-semibold leading-relaxed">
-                    You need more connections or remaining daily posts to publish today.
+                    {t("connectionLimitWarning")}
                   </p>
                 </div>
               )}
@@ -684,15 +687,15 @@ const PublicSpacePage = () => {
                   {isPosting ? (
                     <>
                       <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      Publishing...
+                      {t("publishing")}
                     </>
                   ) : !allUploadsReady ? (
                     <>
                       <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      Uploading...
+                      {t("uploading")}
                     </>
                   ) : (
-                    "Publish Post"
+                    t("publishPost")
                   )}
                 </button>
               </div>
@@ -704,7 +707,7 @@ const PublicSpacePage = () => {
                 <div className="rounded-2xl border border-slate-100 bg-white p-10 text-center">
                   <Loader2 className="h-8 w-8 text-blue-500 animate-spin mx-auto mb-3" />
                   <p className="text-xs font-bold text-slate-400">
-                    Loading community feed...
+                    {t("loadingCommunityFeed")}
                   </p>
                 </div>
               ) : feed.length ? (
@@ -779,7 +782,7 @@ const PublicSpacePage = () => {
                           className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 font-bold transition-colors ${
                             likedByCurrentUser
                               ? "bg-rose-50 text-rose-600 border border-rose-100"
-                              : "bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-100"
+                              : "bg-slate-50 hover:bg-slate-100 text-slate-650 border border-slate-100"
                           }`}
                         >
                           <Heart
@@ -821,7 +824,7 @@ const PublicSpacePage = () => {
                             onKeyDown={(e) => {
                               if (e.key === "Enter") handleComment(post._id);
                             }}
-                            placeholder="Write a comment..."
+                            placeholder={t("writeComment")}
                             className="flex-1 rounded-xl border border-slate-200 px-3.5 py-2 text-xs text-slate-700 placeholder-slate-400 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500 transition-all font-medium"
                           />
                           <button
@@ -829,7 +832,7 @@ const PublicSpacePage = () => {
                             onClick={() => handleComment(post._id)}
                             className="rounded-xl bg-blue-600 px-4 py-2 text-xs font-bold text-white hover:bg-blue-700 transition-colors shadow-sm"
                           >
-                            Post
+                            {t("post")}
                           </button>
                         </div>
 
@@ -873,7 +876,7 @@ const PublicSpacePage = () => {
                           </div>
                         ) : (
                           <p className="text-[11px] text-slate-400 font-bold py-3 text-center">
-                            No comments yet — start the conversation!
+                            {t("noCommentsYet")}
                           </p>
                         )}
                       </div>
@@ -884,7 +887,7 @@ const PublicSpacePage = () => {
                 <div className="rounded-2xl border border-slate-100 bg-white p-16 text-center">
                   <Globe className="h-10 w-10 text-slate-200 mx-auto mb-4" />
                   <p className="text-sm font-bold text-slate-400">
-                    No posts yet. Be the first to share something!
+                    {t("noPostsYet")}
                   </p>
                 </div>
               )}
@@ -896,4 +899,11 @@ const PublicSpacePage = () => {
   );
 };
 
+export const getStaticProps = async ({ locale }: { locale: string }) => ({
+  props: {
+    ...(await serverSideTranslations(locale, ["common"])),
+  },
+});
+
 export default PublicSpacePage;
+

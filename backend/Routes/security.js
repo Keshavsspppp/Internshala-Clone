@@ -89,6 +89,7 @@ const serializeProfile = (userSecurity) => ({
   email: userSecurity.email,
   photo: userSecurity.photo,
   lastSuccessfulLoginAt: userSecurity.lastSuccessfulLoginAt,
+  resumeUrl: userSecurity.resumeUrl || "",
   summary: buildHistorySummary(userSecurity.loginHistory || []),
   loginHistory: (userSecurity.loginHistory || []).map(serializeHistoryItem),
 });
@@ -333,6 +334,84 @@ router.get("/profile", async (req, res) => {
     return res.status(500).json({
       message: "Unable to fetch login history right now.",
     });
+  }
+});
+
+// POST /send-lang-otp — Send verification OTP for language switching
+router.post("/send-lang-otp", async (req, res) => {
+  const email = String(req.body.email || "").trim().toLowerCase();
+  if (!email) {
+    return res.status(400).json({ message: "Email is required." });
+  }
+
+  try {
+    const LangOtp = require("../Model/LangOtp");
+    const otp = String(crypto.randomInt(100000, 1000000));
+    const otpHash = crypto.createHash("sha256").update(otp).digest("hex");
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+    await LangOtp.findOneAndUpdate(
+      { email },
+      { otpHash, expiresAt, verified: false, verifiedAt: null },
+      { upsert: true, new: true }
+    );
+
+    const emailResult = await sendOtpEmail({
+      to: email,
+      otp,
+      browser: "Language Switcher",
+      deviceType: "desktop",
+      operatingSystem: "System"
+    });
+
+    return res.status(200).json({
+      message: "OTP sent successfully to your email.",
+      developmentOtpPreview: emailResult.developmentOtpPreview || null
+    });
+  } catch (error) {
+    console.error("Error sending language OTP:", error);
+    return res.status(500).json({ message: "Unable to send language OTP." });
+  }
+});
+
+// POST /verify-lang-otp — Verify language switcher OTP
+router.post("/verify-lang-otp", async (req, res) => {
+  const email = String(req.body.email || "").trim().toLowerCase();
+  const { otp } = req.body;
+
+  if (!email || !otp) {
+    return res.status(400).json({ message: "Email and OTP are required." });
+  }
+
+  try {
+    const LangOtp = require("../Model/LangOtp");
+    const record = await LangOtp.findOne({ email });
+
+    if (!record) {
+      return res.status(404).json({ message: "No language verification session found." });
+    }
+
+    if (record.expiresAt < new Date()) {
+      return res.status(400).json({ message: "OTP has expired. Please try again." });
+    }
+
+    const inputHash = crypto.createHash("sha256").update(String(otp).trim()).digest("hex");
+
+    if (inputHash !== record.otpHash) {
+      return res.status(400).json({ message: "Invalid OTP. Please try again." });
+    }
+
+    record.verified = true;
+    record.verifiedAt = new Date();
+    await record.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "OTP verified successfully. Language change authorized."
+    });
+  } catch (error) {
+    console.error("Error verifying language OTP:", error);
+    return res.status(500).json({ message: "Unable to verify language OTP." });
   }
 });
 

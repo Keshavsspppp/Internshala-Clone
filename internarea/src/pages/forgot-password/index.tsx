@@ -3,10 +3,13 @@ import Link from "next/link";
 import React, { useMemo, useState } from "react";
 import { Mail, Phone, RefreshCcw } from "lucide-react";
 import { toast } from "react-toastify";
+import { useTranslation } from "next-i18next/pages";
+import { serverSideTranslations } from "next-i18next/pages/serverSideTranslations";
 
 type ResetMethod = "email" | "phone";
 
 const ForgotPasswordPage = () => {
+  const { t } = useTranslation("common");
   const [resetMethod, setResetMethod] = useState<ResetMethod>("email");
   const [identifier, setIdentifier] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -14,9 +17,9 @@ const ForgotPasswordPage = () => {
 
   const placeholder = useMemo(() => {
     return resetMethod === "email"
-      ? "Enter your registered email"
-      : "Enter your registered phone number";
-  }, [resetMethod]);
+      ? t("enterRegisteredEmail")
+      : t("enterRegisteredPhone");
+  }, [resetMethod, t]);
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -54,10 +57,9 @@ const ForgotPasswordPage = () => {
           <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-blue-100">
             <RefreshCcw className="h-7 w-7 text-blue-600" />
           </div>
-          <h1 className="text-3xl font-bold text-gray-900">Forgot Password</h1>
+          <h1 className="text-3xl font-bold text-gray-900">{t("forgotPassword")}</h1>
           <p className="mt-2 text-sm text-gray-600">
-            Reset your password using your registered email or phone number.
-            This option can be used only once per day.
+            {t("resetPasswordDetails")}
           </p>
         </div>
 
@@ -72,7 +74,7 @@ const ForgotPasswordPage = () => {
             }`}
           >
             <Mail className="h-4 w-4" />
-            Email
+            {t("email")}
           </button>
           <button
             type="button"
@@ -84,7 +86,7 @@ const ForgotPasswordPage = () => {
             }`}
           >
             <Phone className="h-4 w-4" />
-            Phone
+            {t("phone")}
           </button>
         </div>
 
@@ -94,7 +96,7 @@ const ForgotPasswordPage = () => {
               htmlFor="identifier"
               className="mb-2 block text-sm font-medium text-gray-700"
             >
-              {resetMethod === "email" ? "Registered email" : "Registered phone number"}
+              {resetMethod === "email" ? t("registeredEmail") : t("registeredPhone")}
             </label>
             <input
               id="identifier"
@@ -111,30 +113,35 @@ const ForgotPasswordPage = () => {
             disabled={isSubmitting}
             className="flex w-full items-center justify-center rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {isSubmitting ? "Resetting password..." : "Generate new password"}
+            {isSubmitting ? t("resettingPassword") : t("generateNewPassword")}
           </button>
         </form>
 
         {isSuccess ? (
           <div className="mt-6 rounded-2xl border border-green-200 bg-green-50 p-5">
             <p className="text-sm font-medium text-green-800">
-              Password Reset Successful
+              {t("passwordResetSuccessful")}
             </p>
             <p className="mt-2 text-xs text-green-700">
-              Your new temporary password has been sent to your registered email.
-              Please check your inbox.
+              {t("newPasswordSent")}
             </p>
           </div>
         ) : null}
 
         <div className="mt-6 text-center text-sm text-gray-600">
           <Link href="/adminlogin" className="font-medium text-blue-600 hover:text-blue-700">
-            Back to admin login
+            {t("backToAdminLogin")}
           </Link>
         </div>
       </div>
     </div>
   );
 };
+
+export const getStaticProps = async ({ locale }: { locale: string }) => ({
+  props: {
+    ...(await serverSideTranslations(locale, ["common"])),
+  },
+});
 
 export default ForgotPasswordPage;

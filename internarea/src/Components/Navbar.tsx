@@ -9,6 +9,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { login, logout, selectuser } from "@/Feature/Userslice";
 import axios from "axios";
 import { getLoginEnvironment } from "@/utils/loginEnvironment";
+import { useTranslation } from "react-i18next";
 import {
   clearPendingOtpSession,
   clearVerifiedSession,
@@ -22,12 +23,96 @@ const Navbar = () => {
   const router = useRouter();
   const dispatch = useDispatch();
   const user = useSelector(selectuser);
+  const { t } = useTranslation("common");
+  const currentLocale = router.locale || "en";
+
+  const languages = [
+    { code: "en", label: "English" },
+    { code: "es", label: "Español" },
+    { code: "hi", label: "हिन्दी" },
+    { code: "pt", label: "Português" },
+    { code: "zh", label: "中文" },
+    { code: "fr", label: "Français" },
+  ];
+
   const [otpCode, setOtpCode] = useState("");
   const [pendingOtpSession, setPendingOtpSession] =
     useState<PendingOtpSession | null>(null);
   const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
   const [isSigningIn, setIsSigningIn] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  const [pendingLangChange, setPendingLangChange] = useState<{
+    targetLocale: string;
+    otpCode: string;
+    email: string;
+  } | null>(null);
+  const [isSendingLangOtp, setIsSendingLangOtp] = useState(false);
+  const [isVerifyingLangOtp, setIsVerifyingLangOtp] = useState(false);
+
+  const handleLocaleChange = async (targetLocale: string) => {
+    if (targetLocale === "fr") {
+      if (!user || !user.email) {
+        toast.error("Please sign in first to switch to French.");
+        return;
+      }
+
+      try {
+        setIsSendingLangOtp(true);
+        const response = await axios.post(
+          `${process.env.NEXT_PUBLIC_API_URL}/api/security/send-lang-otp`,
+          { email: user.email }
+        );
+
+        setPendingLangChange({
+          targetLocale,
+          otpCode: "",
+          email: user.email,
+        });
+
+        if (response.data.developmentOtpPreview) {
+          toast.info(`Development OTP Preview: ${response.data.developmentOtpPreview}`);
+        } else {
+          toast.success("OTP sent to your registered email.");
+        }
+      } catch (err: any) {
+        console.error(err);
+        toast.error(err.response?.data?.message || "Failed to send OTP.");
+      } finally {
+        setIsSendingLangOtp(false);
+      }
+    } else {
+      router.push(router.pathname, router.asPath, { locale: targetLocale });
+    }
+  };
+
+  const handleVerifyLangOtp = async () => {
+    if (!pendingLangChange || !pendingLangChange.otpCode.trim()) {
+      toast.error("Please enter the OTP code.");
+      return;
+    }
+
+    try {
+      setIsVerifyingLangOtp(true);
+      await axios.post(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/security/verify-lang-otp`,
+        {
+          email: pendingLangChange.email,
+          otp: pendingLangChange.otpCode.trim(),
+        }
+      );
+
+      toast.success("Verification successful!");
+      const target = pendingLangChange.targetLocale;
+      setPendingLangChange(null);
+      router.push(router.pathname, router.asPath, { locale: target });
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.response?.data?.message || "Invalid OTP.");
+    } finally {
+      setIsVerifyingLangOtp(false);
+    }
+  };
 
   useEffect(() => {
     setPendingOtpSession(getPendingOtpSession());
@@ -190,7 +275,7 @@ const Navbar = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
           <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
             <h2 className="text-xl font-semibold text-gray-900">
-              Verify Chrome Login
+              {t("verifyChrome")}
             </h2>
             <p className="mt-2 text-sm text-gray-600">
               Enter the OTP sent to `{pendingOtpSession.email}` to complete this
@@ -205,7 +290,7 @@ const Navbar = () => {
               type="text"
               value={otpCode}
               onChange={(event) => setOtpCode(event.target.value)}
-              placeholder="Enter 6-digit OTP"
+              placeholder={t("enter6DigitOtp")}
               className="mt-4 w-full rounded-lg border border-gray-300 px-4 py-3 text-gray-900 focus:border-blue-500 focus:outline-none"
             />
             <div className="mt-4 flex gap-3">
@@ -219,6 +304,45 @@ const Navbar = () => {
               <button
                 onClick={handleCancelPendingLogin}
                 disabled={isVerifyingOtp}
+                className="flex-1 rounded-lg border border-gray-300 px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {pendingLangChange ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+            <h2 className="text-xl font-semibold text-gray-900">
+              {t("verifyFrench")}
+            </h2>
+            <p className="mt-2 text-sm text-gray-650">
+              {t("otpSent")}
+            </p>
+            <input
+              type="text"
+              value={pendingLangChange.otpCode}
+              onChange={(e) => {
+                const text = e.target.value;
+                setPendingLangChange(prev => prev ? { ...prev, otpCode: text } : null);
+              }}
+              placeholder={t("enter6DigitOtp")}
+              className="mt-4 w-full rounded-lg border border-gray-300 px-4 py-3 text-center tracking-widest text-lg font-bold text-gray-900 focus:border-blue-500 focus:outline-none"
+            />
+            <div className="mt-4 flex gap-3">
+              <button
+                onClick={handleVerifyLangOtp}
+                disabled={isVerifyingLangOtp}
+                className="flex-1 rounded-lg bg-blue-600 px-4 py-3 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-60"
+              >
+                {isVerifyingLangOtp ? "Verifying..." : "Verify OTP"}
+              </button>
+              <button
+                onClick={() => setPendingLangChange(null)}
+                disabled={isVerifyingLangOtp}
                 className="flex-1 rounded-lg border border-gray-300 px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50"
               >
                 Cancel
@@ -246,7 +370,7 @@ const Navbar = () => {
                   router.pathname === "/internship" ? "text-blue-600 font-semibold" : "text-slate-600"
                 }`}
               >
-                <span>Internships</span>
+                <span>{t("internships")}</span>
                 {router.pathname === "/internship" && (
                   <span className="absolute bottom-0 left-0 w-full h-[2px] bg-blue-600 rounded-full animate-fade-in" />
                 )}
@@ -258,7 +382,7 @@ const Navbar = () => {
                   router.pathname === "/job" ? "text-blue-600 font-semibold" : "text-slate-600"
                 }`}
               >
-                <span>Jobs</span>
+                <span>{t("jobs")}</span>
                 {router.pathname === "/job" && (
                   <span className="absolute bottom-0 left-0 w-full h-[2px] bg-blue-600 rounded-full animate-fade-in" />
                 )}
@@ -270,18 +394,32 @@ const Navbar = () => {
                   router.pathname === "/public-space" ? "text-blue-600 font-semibold" : "text-slate-600"
                 }`}
               >
-                <span>Public Space</span>
+                <span>{t("publicSpace")}</span>
                 {router.pathname === "/public-space" && (
                   <span className="absolute bottom-0 left-0 w-full h-[2px] bg-blue-600 rounded-full animate-fade-in" />
                 )}
               </Link>
+
+              {user && (
+                <Link 
+                  href={"/resume"}
+                  className={`relative py-2 text-sm font-medium transition-colors duration-200 hover:text-blue-600 ${
+                    router.pathname === "/resume" ? "text-blue-600 font-semibold" : "text-slate-600"
+                  }`}
+                >
+                  <span>{t("resumeBuilder")}</span>
+                  {router.pathname === "/resume" && (
+                    <span className="absolute bottom-0 left-0 w-full h-[2px] bg-blue-600 rounded-full animate-fade-in" />
+                  )}
+                </Link>
+              )}
 
               {/* Modernized Search Input */}
               <div className="flex items-center bg-slate-50 border border-slate-200 rounded-full px-3 py-1.5 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-100 transition-all duration-200">
                 <Search size={14} className="text-slate-400" />
                 <input
                   type="text"
-                  placeholder="Search opportunities..."
+                  placeholder={t("searchPlaceholder")}
                   className="ml-2 bg-transparent text-slate-800 focus:outline-none text-xs w-40"
                 />
               </div>
@@ -289,6 +427,18 @@ const Navbar = () => {
 
             {/* Auth Buttons */}
             <div className="flex items-center space-x-4">
+              <select
+                value={currentLocale}
+                onChange={(e) => handleLocaleChange(e.target.value)}
+                className="bg-slate-50 border border-slate-200 rounded-full px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-100 text-xs font-semibold text-slate-700 cursor-pointer hover:border-slate-300 transition-all duration-200"
+              >
+                {languages.map((lang) => (
+                  <option key={lang.code} value={lang.code}>
+                    {lang.label}
+                  </option>
+                ))}
+              </select>
+
               {user ? (
                 <div className="flex items-center gap-3">
                   <Link 
@@ -301,14 +451,14 @@ const Navbar = () => {
                       className="w-8 h-8 rounded-full object-cover"
                     />
                     <span className="absolute -bottom-8 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-[10px] px-2 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
-                      Profile
+                      {t("profile")}
                     </span>
                   </Link>
                   <button
                     className="px-4 py-1.5 text-xs font-semibold text-rose-600 hover:bg-rose-50 rounded-full transition-colors border border-rose-100"
                     onClick={handlelogout}
                   >
-                    Logout
+                    {t("logout")}
                   </button>
                 </div>
               ) : (
@@ -337,14 +487,14 @@ const Navbar = () => {
                       />
                     </svg>
                     <span className="text-slate-700">
-                      {isSigningIn ? "Signing in..." : "Continue with Google"}
+                      {isSigningIn ? "Signing in..." : t("loginWithGoogle")}
                     </span>
                   </button>
                   <Link
                     href="/adminlogin"
                     className="text-xs font-semibold text-slate-500 hover:text-slate-800 transition-colors"
                   >
-                    Admin
+                    {t("admin")}
                   </Link>
                 </div>
               )}
@@ -378,7 +528,7 @@ const Navbar = () => {
                   router.pathname === "/internship" ? "bg-blue-50 text-blue-600 font-bold" : "text-slate-600 hover:bg-slate-50"
                 }`}
               >
-                Internships
+                {t("internships")}
               </Link>
               <Link 
                 href={"/job"}
@@ -387,7 +537,7 @@ const Navbar = () => {
                   router.pathname === "/job" ? "bg-blue-50 text-blue-600 font-bold" : "text-slate-600 hover:bg-slate-50"
                 }`}
               >
-                Jobs
+                {t("jobs")}
               </Link>
               <Link 
                 href={"/public-space"}
@@ -396,8 +546,19 @@ const Navbar = () => {
                   router.pathname === "/public-space" ? "bg-blue-50 text-blue-600 font-bold" : "text-slate-600 hover:bg-slate-50"
                 }`}
               >
-                Public Space
+                {t("publicSpace")}
               </Link>
+              {user && (
+                <Link 
+                  href={"/resume"}
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className={`block px-3 py-2.5 rounded-xl text-base font-semibold transition-colors ${
+                    router.pathname === "/resume" ? "bg-blue-50 text-blue-600 font-bold" : "text-slate-600 hover:bg-slate-50"
+                  }`}
+                >
+                  {t("resumeBuilder")}
+                </Link>
+              )}
               
               {/* Search in mobile menu */}
               <div className="pt-2">
@@ -405,7 +566,7 @@ const Navbar = () => {
                   <Search size={16} className="text-slate-400" />
                   <input
                     type="text"
-                    placeholder="Search opportunities..."
+                    placeholder={t("searchPlaceholder")}
                     className="ml-2 bg-transparent text-slate-800 focus:outline-none text-sm w-full"
                   />
                 </div>

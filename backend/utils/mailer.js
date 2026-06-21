@@ -125,9 +125,45 @@ const sendPasswordEmail = async ({ to, newPassword }) => {
   return { delivered: true };
 };
 
+const sendResumeOtpEmail = async ({ to, otp }) => {
+  if (!hasSmtpConfig()) {
+    console.warn(
+      `SMTP is not configured. Resume OTP for ${to}: ${otp}. Configure SMTP_* env vars to send real emails.`
+    );
+    return {
+      delivered: false,
+      developmentOtpPreview: otp,
+    };
+  }
+
+  const transporter = createTransporter();
+
+  await transporter.sendMail({
+    from: process.env.SMTP_FROM,
+    to,
+    subject: "InternArea Resume Builder Verification Code",
+    text: [
+      "Hello,",
+      "",
+      "Your verification code for building your resume is:",
+      otp,
+      "",
+      "This code will expire in 10 minutes.",
+      "",
+      "If you did not request this code, please ignore this email.",
+      "",
+      "Best regards,",
+      "InternArea Team",
+    ].join("\n"),
+  });
+
+  return { delivered: true };
+};
+
 module.exports = {
   hasSmtpConfig,
   sendOtpEmail,
   sendInvoiceEmail,
   sendPasswordEmail,
+  sendResumeOtpEmail,
 };

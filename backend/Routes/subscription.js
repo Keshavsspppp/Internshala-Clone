@@ -130,4 +130,44 @@ router.post("/verify-payment", authMiddleware, async (req, res) => {
   }
 });
 
+// GET /status — Get current user subscription status
+router.get("/status", authMiddleware, async (req, res) => {
+  const userEmail = req.user.email?.toLowerCase();
+  if (!userEmail) {
+    return res.status(400).json({ error: "Email is required" });
+  }
+
+  try {
+    const sub = await UserSubscription.findOne({
+      userEmail,
+      expiresAt: { $gt: new Date() }
+    });
+
+    const planName = sub ? sub.planName : "Free";
+    const expiresAt = sub ? sub.expiresAt : null;
+
+    const limits = { Free: 1, Bronze: 3, Silver: 5, Gold: Infinity };
+    const limit = limits[planName];
+
+    const ApplicationModel = require("../Model/Application");
+    const startOfMonth = new Date(new Date().setDate(1));
+    startOfMonth.setHours(0, 0, 0, 0);
+
+    const applicationsUsed = await ApplicationModel.countDocuments({
+      "user.email": userEmail,
+      createdAt: { $gte: startOfMonth }
+    });
+
+    return res.status(200).json({
+      planName,
+      expiresAt,
+      applicationsUsed,
+      limit
+    });
+  } catch (error) {
+    console.error("Error fetching subscription status:", error);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 module.exports = router;

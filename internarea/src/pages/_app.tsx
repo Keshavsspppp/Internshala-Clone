@@ -15,7 +15,9 @@ import {
   clearVerifiedSession,
   getVerifiedSession,
 } from "@/utils/securitySession";
-export default function App({ Component, pageProps }: AppProps) {
+import { appWithTranslation } from "next-i18next/pages";
+
+function App({ Component, pageProps }: AppProps) {
   useEffect(() => {
     const requestInterceptor = axios.interceptors.request.use(
       async (config) => {
@@ -89,3 +91,5 @@ export default function App({ Component, pageProps }: AppProps) {
     </Provider>
   );
 }
+
+export default appWithTranslation(App);
