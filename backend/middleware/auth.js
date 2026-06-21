@@ -33,10 +33,24 @@ if (admin.getApps().length === 0) {
     privateKey = privateKey.replace(/\\n/g, '\n');
     privateKey = privateKey.replace(/\r/g, '');
 
-    // Format single-line keys to valid PEM format if necessary
-    if (!privateKey.includes('\n')) {
-      const header = "-----BEGIN PRIVATE KEY-----";
-      const footer = "-----END PRIVATE KEY-----";
+    // Format and reconstruct key to valid PEM format if headers are missing
+    const header = "-----BEGIN PRIVATE KEY-----";
+    const footer = "-----END PRIVATE KEY-----";
+
+    if (!privateKey.includes(header)) {
+      let body = privateKey;
+      // Strip leading 'n' if it's the leftover of '\n'
+      if (body.startsWith('nMII')) {
+        body = body.substring(1);
+      }
+      body = body.replace(/\s+/g, '');
+      const lines = [];
+      for (let i = 0; i < body.length; i += 64) {
+        lines.push(body.substring(i, i + 64));
+      }
+      privateKey = `${header}\n${lines.join('\n')}\n${footer}\n`;
+    } else if (!privateKey.includes('\n')) {
+      // Format single-line keys to valid PEM format if headers are present but no newlines
       if (privateKey.startsWith(header) && privateKey.endsWith(footer)) {
         let body = privateKey.substring(header.length, privateKey.length - footer.length).trim();
         body = body.replace(/\s+/g, '');
@@ -50,7 +64,7 @@ if (admin.getApps().length === 0) {
 
     privateKey = privateKey.trim();
 
-    console.log("Firebase Private Key Diagnostics:");
+    console.log("Firebase Private Key Diagnostics (Post-Reconstruction):");
     console.log("- Length:", privateKey.length);
     console.log("- Starts with BEGIN:", privateKey.startsWith("-----BEGIN PRIVATE KEY-----"));
     console.log("- Ends with END:", privateKey.endsWith("-----END PRIVATE KEY-----"));
