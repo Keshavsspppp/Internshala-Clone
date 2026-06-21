@@ -341,4 +341,39 @@ router.post("/posts/:id/share", authMiddleware, async (req, res) => {
   }
 });
 
+router.post("/upload-media", authMiddleware, async (req, res) => {
+  const { name, base64 } = req.body;
+  try {
+    if (!base64 || !name) {
+      return res.status(400).json({ message: "File name and base64 data are required." });
+    }
+
+    const fs = require("fs");
+    const path = require("path");
+
+    // Clean up base64 prefix if present
+    const base64Data = base64.replace(/^data:image\/\w+;base64,/, "").replace(/^data:video\/\w+;base64,/, "");
+    const buffer = Buffer.from(base64Data, "base64");
+
+    const ext = path.extname(name) || ".png";
+    const filename = `media_${Date.now()}_${Math.random().toString(36).slice(2)}${ext}`;
+    const mediaDir = path.join(__dirname, "../public/resumes"); // Reuse existing static folder for simplicity
+
+    if (!fs.existsSync(mediaDir)) {
+      fs.mkdirSync(mediaDir, { recursive: true });
+    }
+
+    const localPath = path.join(mediaDir, filename);
+    fs.writeFileSync(localPath, buffer);
+
+    const downloadUrl = `${req.protocol}://${req.get("host")}/resumes/${filename}`;
+    console.log(`Local media uploaded: ${downloadUrl}`);
+
+    return res.status(200).json({ url: downloadUrl });
+  } catch (error) {
+    console.error("Local media upload failed:", error);
+    return res.status(500).json({ message: "Failed to upload media locally." });
+  }
+});
+
 module.exports = router;

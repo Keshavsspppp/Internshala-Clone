@@ -194,13 +194,35 @@ const PublicSpacePage = () => {
             prev.map((u) => (u.id === id ? { ...u, progress: pct } : u))
           );
         },
-        () => {
-          setUploadingFiles((prev) =>
-            prev.map((u) =>
-              u.id === id ? { ...u, status: "error", progress: 0 } : u
-            )
-          );
-          toast.error(`Failed to upload ${file.name}`);
+        async () => {
+          console.warn(`Firebase upload failed for ${file.name}. Trying local server fallback...`);
+          
+          const reader = new FileReader();
+          reader.readAsDataURL(file);
+          reader.onloadend = async () => {
+            const base64data = reader.result as string;
+            try {
+              const uploadRes = await axios.post(
+                `${process.env.NEXT_PUBLIC_API_URL}/api/community/upload-media`, 
+                { name: file.name, base64: base64data }
+              );
+              setUploadingFiles((prev) =>
+                prev.map((u) =>
+                  u.id === id
+                    ? { ...u, status: "done", url: uploadRes.data.url, progress: 100 }
+                    : u
+                )
+              );
+              toast.info(`Uploaded ${file.name} to local server.`);
+            } catch (err) {
+              setUploadingFiles((prev) =>
+                prev.map((u) =>
+                  u.id === id ? { ...u, status: "error", progress: 0 } : u
+                )
+              );
+              toast.error(`Failed to upload ${file.name} to local server.`);
+            }
+          };
         },
         async () => {
           const downloadUrl = await getDownloadURL(task.snapshot.ref);
