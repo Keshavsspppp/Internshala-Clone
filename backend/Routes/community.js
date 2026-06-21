@@ -24,8 +24,14 @@ const getPostingLimit = (friendsCount) => {
 };
 
 const countTodayPosts = async (userKey) => {
-  const startOfDay = new Date();
-  startOfDay.setHours(0, 0, 0, 0);
+  const getISTMidnight = () => {
+    const now = new Date();
+    const istOffset = 5.5 * 60 * 60 * 1000;
+    const istNow = new Date(now.getTime() + istOffset);
+    istNow.setUTCHours(0, 0, 0, 0); // midnight in IST
+    return new Date(istNow.getTime() - istOffset); // back to UTC for MongoDB
+  };
+  const startOfDay = getISTMidnight();
 
   return PublicPost.countDocuments({
     "author.userKey": userKey,
@@ -168,7 +174,13 @@ router.post("/friends", authMiddleware, async (req, res) => {
 
 router.get("/feed", authMiddleware, async (req, res) => {
   try {
-    const posts = await PublicPost.find().sort({ createdAt: -1 });
+    const page = Math.max(parseInt(req.query.page) || 1, 1);
+    const limit = 20;
+    const posts = await PublicPost.find()
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit)
+      .lean();
     return res.status(200).json(posts);
   } catch (error) {
     console.error("Unable to fetch feed:", error);
@@ -351,13 +363,33 @@ router.post("/upload-media", authMiddleware, async (req, res) => {
     const fs = require("fs");
     const path = require("path");
 
+    // 1. Extension and MIME type validation
+    const ALLOWED_EXTS = ['.jpg','.jpeg','.png','.gif','.webp','.mp4','.mov','.webm','.avi'];
+    const ext = path.extname(name).toLowerCase();
+    if (!ALLOWED_EXTS.includes(ext)) {
+      return res.status(400).json({ message: "Only image and video files are allowed." });
+    }
+
+    const isImage = base64.startsWith("data:image/");
+    const isVideo = base64.startsWith("data:video/");
+    if (!isImage && !isVideo) {
+      return res.status(400).json({ message: "Invalid file type." });
+    }
+
+    // 2. Size validation (8 MB limit check)
+    const MAX_SIZE_BYTES = 8 * 1024 * 1024; // 8 MB
+    const sizeEstimate = Buffer.byteLength(base64, "utf8") * 0.75;
+    if (sizeEstimate > MAX_SIZE_BYTES) {
+      return res.status(413).json({ message: "File too large. Max 8 MB per upload." });
+    }
+
     // Clean up base64 prefix if present
     const base64Data = base64.replace(/^data:image\/\w+;base64,/, "").replace(/^data:video\/\w+;base64,/, "");
     const buffer = Buffer.from(base64Data, "base64");
 
-    const ext = path.extname(name) || ".png";
     const filename = `media_${Date.now()}_${Math.random().toString(36).slice(2)}${ext}`;
-    const mediaDir = path.join(__dirname, "../public/resumes"); // Reuse existing static folder for simplicity
+    // Save to separate /public/media folder
+    const mediaDir = path.join(__dirname, "../public/media");
 
     if (!fs.existsSync(mediaDir)) {
       fs.mkdirSync(mediaDir, { recursive: true });
@@ -366,7 +398,9 @@ router.post("/upload-media", authMiddleware, async (req, res) => {
     const localPath = path.join(mediaDir, filename);
     fs.writeFileSync(localPath, buffer);
 
-    const downloadUrl = `${req.protocol}://${req.get("host")}/resumes/${filename}`;
+    // Support absolute domain config or fallback to dynamic host
+    const backendUrl = process.env.BACKEND_URL || `${req.protocol}://${req.get("host")}`;
+    const downloadUrl = `${backendUrl}/media/${filename}`;
     console.log(`Local media uploaded: ${downloadUrl}`);
 
     return res.status(200).json({ url: downloadUrl });

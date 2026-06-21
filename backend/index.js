@@ -27,11 +27,13 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
-app.use(express.json({ limit: "50mb" }));
-app.use(express.urlencoded({ extended: true, limit: "50mb" }));
+app.use(express.json({ limit: "15mb" }));
+app.use(express.urlencoded({ extended: true, limit: "15mb" }));
 
 // Serve static resumes
 app.use("/resumes", express.static(path.join(__dirname, "public/resumes")));
+// Serve static media
+app.use("/media", express.static(path.join(__dirname, "public/media")));
 
 app.get("/", (req, res) => {
   res.json({ message: "InternArea backend is running." });

@@ -1,7 +1,5 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 .env
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
-.env
 
 # dependencies
 /node_modules
@@ -43,8 +41,9 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# local generated resumes
+# local generated resumes and media
 /public/resumes/
+/public/media/
 
 # dev scratch scripts
 scratch_gold.js

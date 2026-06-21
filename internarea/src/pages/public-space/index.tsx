@@ -114,6 +114,9 @@ const PublicSpacePage = () => {
   const [profile, setProfile] = useState<CommunityProfile | null>(null);
   const [feed, setFeed] = useState<CommunityPost[]>([]);
   const [loading, setLoading] = useState(true);
+  const [feedPage, setFeedPage] = useState(1);
+  const [hasMoreFeed, setHasMoreFeed] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [composerText, setComposerText] = useState("");
   const [uploadingFiles, setUploadingFiles] = useState<UploadingFile[]>([]);
   const [friendForm, setFriendForm] = useState({ name: "", email: "" });
@@ -143,15 +146,36 @@ const PublicSpacePage = () => {
         axios.post(`${process.env.NEXT_PUBLIC_API_URL}/api/community/profile`, {
           user: communityUser,
         }),
-        axios.get(`${process.env.NEXT_PUBLIC_API_URL}/api/community/feed`),
+        axios.get(`${process.env.NEXT_PUBLIC_API_URL}/api/community/feed?page=1`),
       ]);
       setProfile(profileRes.data);
       setFeed(feedRes.data);
+      setFeedPage(1);
+      setHasMoreFeed(feedRes.data.length === 20);
     } catch (error) {
       console.error(error);
       toast.error("Unable to load the Public Space right now.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadMoreFeed = async () => {
+    if (loadingMore || !hasMoreFeed) return;
+    try {
+      setLoadingMore(true);
+      const nextPage = feedPage + 1;
+      const res = await axios.get(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/community/feed?page=${nextPage}`
+      );
+      setFeed((prev) => [...prev, ...res.data]);
+      setFeedPage(nextPage);
+      setHasMoreFeed(res.data.length === 20);
+    } catch (error) {
+      console.error(error);
+      toast.error("Unable to load more posts.");
+    } finally {
+      setLoadingMore(false);
     }
   };
 
@@ -213,14 +237,14 @@ const PublicSpacePage = () => {
                     : u
                 )
               );
-              toast.info(`Uploaded ${file.name} to local server.`);
+              toast.info(`${file.name} uploaded successfully.`);
             } catch (err) {
               setUploadingFiles((prev) =>
                 prev.map((u) =>
                   u.id === id ? { ...u, status: "error", progress: 0 } : u
                 )
               );
-              toast.error(`Failed to upload ${file.name} to local server.`);
+              toast.error(`Failed to upload ${file.name}.`);
             }
           };
         },
@@ -911,6 +935,20 @@ const PublicSpacePage = () => {
                   <p className="text-sm font-bold text-slate-400">
                     {t("noPostsYet")}
                   </p>
+                </div>
+              )}
+
+              {hasMoreFeed && feed.length > 0 && (
+                <div className="flex justify-center pt-4">
+                  <button
+                    type="button"
+                    onClick={loadMoreFeed}
+                    disabled={loadingMore}
+                    className="rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-bold px-6 py-2.5 text-xs transition-colors shadow-sm disabled:opacity-50 inline-flex items-center gap-2"
+                  >
+                    {loadingMore && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                    {t("loadMore", "Load More")}
+                  </button>
                 </div>
               )}
             </div>
