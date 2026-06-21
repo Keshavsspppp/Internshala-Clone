@@ -2,6 +2,7 @@ const express = require("express");
 const crypto = require("crypto");
 const UserSecurity = require("../Model/UserSecurity");
 const { sendOtpEmail } = require("../utils/mailer");
+const authMiddleware = require("../middleware/auth");
 
 const router = express.Router();
 
@@ -328,7 +329,14 @@ router.get("/profile", async (req, res) => {
       });
     }
 
-    return res.status(200).json(serializeProfile(userSecurity));
+    const UserSubscription = require("../Model/UserSubscription");
+    const subscription = await UserSubscription.findOne({ userEmail: userSecurity.email });
+    const resumeUrl = subscription ? (subscription.resumeUrl || "") : "";
+
+    const serialized = serializeProfile(userSecurity);
+    serialized.resumeUrl = resumeUrl;
+
+    return res.status(200).json(serialized);
   } catch (error) {
     console.error("Unable to fetch user security profile:", error);
     return res.status(500).json({
@@ -338,8 +346,8 @@ router.get("/profile", async (req, res) => {
 });
 
 // POST /send-lang-otp — Send verification OTP for language switching
-router.post("/send-lang-otp", async (req, res) => {
-  const email = String(req.body.email || "").trim().toLowerCase();
+router.post("/send-lang-otp", authMiddleware, async (req, res) => {
+  const email = req.user.email?.toLowerCase();
   if (!email) {
     return res.status(400).json({ message: "Email is required." });
   }
@@ -352,7 +360,7 @@ router.post("/send-lang-otp", async (req, res) => {
 
     await LangOtp.findOneAndUpdate(
       { email },
-      { otpHash, expiresAt, verified: false, verifiedAt: null },
+      { otpHash, expiresAt, verified: false, verifiedAt: null, failedAttempts: 0 },
       { upsert: true, new: true }
     );
 
@@ -375,8 +383,8 @@ router.post("/send-lang-otp", async (req, res) => {
 });
 
 // POST /verify-lang-otp — Verify language switcher OTP
-router.post("/verify-lang-otp", async (req, res) => {
-  const email = String(req.body.email || "").trim().toLowerCase();
+router.post("/verify-lang-otp", authMiddleware, async (req, res) => {
+  const email = req.user.email?.toLowerCase();
   const { otp } = req.body;
 
   if (!email || !otp) {
@@ -395,9 +403,16 @@ router.post("/verify-lang-otp", async (req, res) => {
       return res.status(400).json({ message: "OTP has expired. Please try again." });
     }
 
+    if (record.failedAttempts >= 5) {
+      await record.deleteOne(); // invalidate session
+      return res.status(429).json({ message: "Too many failed attempts. Request a new OTP." });
+    }
+
     const inputHash = crypto.createHash("sha256").update(String(otp).trim()).digest("hex");
 
     if (inputHash !== record.otpHash) {
+      record.failedAttempts += 1;
+      await record.save();
       return res.status(400).json({ message: "Invalid OTP. Please try again." });
     }
 
@@ -411,7 +426,7 @@ router.post("/verify-lang-otp", async (req, res) => {
     });
   } catch (error) {
     console.error("Error verifying language OTP:", error);
-    return res.status(500).json({ message: "Unable to verify language OTP." });
+    return res.status(500).json({ message: "Unable to verify OTP right now." });
   }
 });
 

@@ -108,10 +108,6 @@ const UserSecuritySchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
-    resumeUrl: {
-      type: String,
-      default: "",
-    },
   },
   {
     timestamps: true,

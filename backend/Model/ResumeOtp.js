@@ -24,6 +24,10 @@ const ResumeOtpSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    failedAttempts: {
+      type: Number,
+      default: 0,
+    },
   },
   {
     timestamps: true,

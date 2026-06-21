@@ -10,6 +10,8 @@ import Link from "next/link";
 import axios from "axios";
 import { selectuser } from "@/Feature/Userslice";
 import { useSelector } from "react-redux";
+import { useTranslation } from "next-i18next/pages";
+import { serverSideTranslations } from "next-i18next/pages/serverSideTranslations";
 const getStatusClasses = (status: any) => {
   switch ((status || "").toLowerCase()) {
     case "accepted":
@@ -21,6 +23,7 @@ const getStatusClasses = (status: any) => {
   }
 };
 const UserApplicationsPage = () => {
+  const { t } = useTranslation("common");
   const [searchTerm, setsearchTerm] = useState("");
   const [filter, setFilter] = useState("all");
   const user=useSelector(selectuser)
@@ -73,10 +76,10 @@ const UserApplicationsPage = () => {
           {/* Header */}
           <div className="border-b border-slate-100 px-6 py-6 sm:px-8">
             <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-800 font-heading tracking-tight">
-              My Applications
+              {t("myApplications")}
             </h1>
             <p className="mt-1 text-xs sm:text-sm text-slate-500 font-medium">
-              Track and manage your job and internship applications
+              {t("trackAndManage")}
             </p>
           </div>
 
@@ -89,7 +92,7 @@ const UserApplicationsPage = () => {
                     type="text"
                     value={searchTerm}
                     onChange={(e) => setsearchTerm(e.target.value)}
-                    placeholder="Search by company or category..."
+                    placeholder={t("searchCompanyCategory")}
                     className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200 text-xs font-semibold"
                   />
                   <Search className="absolute top-3 left-3.5 h-4 w-4 text-slate-400" />
@@ -113,7 +116,7 @@ const UserApplicationsPage = () => {
                         : "bg-white text-slate-500 border border-slate-200 hover:bg-slate-50 hover:text-slate-800 shadow-sm"
                     }`}
                   >
-                    {status}
+                    {t(status)}
                   </button>
                 ))}
               </div>
@@ -132,25 +135,25 @@ const UserApplicationsPage = () => {
                         scope="col"
                         className="px-6 py-4 text-left text-[10px] font-bold text-slate-400 uppercase tracking-wider"
                       >
-                        Company & Category
+                        {t("companyCategory")}
                       </th>
                       <th
                         scope="col"
                         className="px-6 py-4 text-left text-[10px] font-bold text-slate-400 uppercase tracking-wider"
                       >
-                        Applicant
+                        {t("applicant")}
                       </th>
                       <th
                         scope="col"
                         className="px-6 py-4 text-left text-[10px] font-bold text-slate-400 uppercase tracking-wider"
                       >
-                        Applied Date
+                        {t("appliedOn")}
                       </th>
                       <th
                         scope="col"
                         className="px-6 py-4 text-left text-[10px] font-bold text-slate-400 uppercase tracking-wider"
                       >
-                        Status
+                        {t("status")}
                       </th>
                     </tr>
                   </thead>
@@ -200,7 +203,7 @@ const UserApplicationsPage = () => {
                               application.status
                             )}`}
                           >
-                            {application.status}
+                            {t(application.status.toLowerCase())}
                           </span>
                         </td>
                       </tr>
@@ -227,18 +230,18 @@ const UserApplicationsPage = () => {
                         </div>
                       </div>
                       <span className={`px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider rounded-lg border ${getStatusClasses(application.status)}`}>
-                        {application.status}
+                        {t(application.status.toLowerCase())}
                       </span>
                     </div>
 
                     <div className="grid grid-cols-2 gap-4 pt-3 border-t border-slate-55">
                       <div className="space-y-1">
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Applicant</span>
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{t("applicant")}</span>
                         <div className="text-xs font-bold text-slate-700 truncate">{application.user.name}</div>
                         <div className="text-[10px] text-slate-450 font-medium truncate">{application.user.email}</div>
                       </div>
                       <div className="space-y-1">
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Applied On</span>
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{t("appliedOn")}</span>
                         <div className="flex items-center text-xs font-semibold text-slate-600 mt-0.5">
                           <Calendar className="h-3.5 w-3.5 mr-1 text-slate-400" />
                           {new Date(application.createdAt).toISOString().split("T")[0]}
@@ -251,13 +254,21 @@ const UserApplicationsPage = () => {
             </>
           ) : (
             <div className="p-12 text-center text-slate-500 text-sm bg-white font-medium">
-              No applications found matching your criteria.
+              {t("noApplicationsFound")}
             </div>
           )}
         </div>
       </div>
     </div>
   );
+};
+
+export const getStaticProps = async ({ locale }: any) => {
+  return {
+    props: {
+      ...(await serverSideTranslations(locale || "en", ["common"])),
+    },
+  };
 };
 
 export default UserApplicationsPage;

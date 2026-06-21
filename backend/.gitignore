@@ -45,3 +45,8 @@ next-env.d.ts
 
 # local generated resumes
 /public/resumes/
+
+# dev scratch scripts
+scratch_gold.js
+scratch_*.js
+

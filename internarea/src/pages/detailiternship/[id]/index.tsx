@@ -14,6 +14,8 @@ import { useRouter } from "next/router";
 import React, { useEffect, useState } from "react";
 import { useSelector } from "react-redux";
 import { toast } from "react-toastify";
+import { useTranslation } from "next-i18next/pages";
+import { serverSideTranslations } from "next-i18next/pages/serverSideTranslations";
 // export const internships = [
 //   {
 //     _id: "1",
@@ -72,6 +74,7 @@ import { toast } from "react-toastify";
 // ];
 
 const InternshipDetailPage = () => {
+  const { t } = useTranslation("common");
   const router = useRouter();
   const { id } = router.query;
   const [loading, setloading] = useState(true);
@@ -140,7 +143,7 @@ const InternshipDetailPage = () => {
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-2 text-[10px] font-bold text-blue-650 bg-blue-50 w-fit px-2.5 py-1 rounded-full border border-blue-100">
                 <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
-                <span className="uppercase tracking-wider">Actively Hiring</span>
+                <span className="uppercase tracking-wider">{t("activelyHiring")}</span>
               </div>
               <span className="text-[10px] font-bold text-slate-400 bg-slate-50 px-2.5 py-1 rounded-md">
                 Ref: {String(id).slice(-6).toUpperCase()}
@@ -158,7 +161,7 @@ const InternshipDetailPage = () => {
                   <MapPin className="h-5 w-5" />
                 </div>
                 <div>
-                  <p className="text-[10px] font-bold text-slate-405 uppercase tracking-wider">Location</p>
+                  <p className="text-[10px] font-bold text-slate-405 uppercase tracking-wider">{t("location")}</p>
                   <p className="text-xs sm:text-sm font-bold text-slate-700 mt-0.5">{internshipData.location}</p>
                 </div>
               </div>
@@ -168,7 +171,7 @@ const InternshipDetailPage = () => {
                   <DollarSign className="h-5 w-5" />
                 </div>
                 <div>
-                  <p className="text-[10px] font-bold text-slate-405 uppercase tracking-wider">Stipend</p>
+                  <p className="text-[10px] font-bold text-slate-405 uppercase tracking-wider">{t("stipend")}</p>
                   <p className="text-xs sm:text-sm font-bold text-slate-700 mt-0.5">{internshipData.stipend}</p>
                 </div>
               </div>
@@ -178,7 +181,7 @@ const InternshipDetailPage = () => {
                   <Calendar className="h-5 w-5" />
                 </div>
                 <div>
-                  <p className="text-[10px] font-bold text-slate-405 uppercase tracking-wider">Start Date</p>
+                  <p className="text-[10px] font-bold text-slate-405 uppercase tracking-wider">{t("startDate")}</p>
                   <p className="text-xs sm:text-sm font-bold text-slate-700 mt-0.5">{internshipData.startDate || "Immediate"}</p>
                 </div>
               </div>
@@ -187,7 +190,7 @@ const InternshipDetailPage = () => {
             <div className="mt-8 flex items-center space-x-2 bg-emerald-50/50 w-fit px-3 py-1.5 rounded-lg border border-emerald-100">
               <Clock className="h-4 w-4 text-emerald-600 animate-pulse" />
               <span className="text-emerald-700 text-xs font-bold">
-                Posted on {new Date(internshipData.createdAt || Date.now()).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
+                {t("postedRecently")}
               </span>
             </div>
           </div>
@@ -195,14 +198,14 @@ const InternshipDetailPage = () => {
           {/* Company Details */}
           <div className="p-8 sm:p-10 border-b border-slate-100">
             <h2 className="text-lg font-bold text-slate-900 mb-4 font-heading">
-              About {internshipData.company}
+              {t("aboutCompanyHeader", { company: internshipData.company })}
             </h2>
             <div className="mb-4">
               <a
                 href="#"
                 className="text-xs font-bold text-blue-600 hover:text-blue-700 flex items-center space-x-1 w-fit group"
               >
-                <span>Visit company website</span>
+                <span>{t("visitWebsite")}</span>
                 <ExternalLink className="h-3.5 w-3.5 transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
               </a>
             </div>
@@ -215,7 +218,7 @@ const InternshipDetailPage = () => {
           <div className="p-8 sm:p-10 space-y-8 border-b border-slate-100">
             <div>
               <h2 className="text-lg font-bold text-slate-900 mb-3 font-heading">
-                About the Internship
+                {t("aboutInternshipRole")}
               </h2>
               <p className="text-xs sm:text-sm text-slate-600 leading-relaxed whitespace-pre-line">
                 {internshipData.aboutInternship}
@@ -225,7 +228,7 @@ const InternshipDetailPage = () => {
             <div className="p-6 bg-slate-50 rounded-2xl border border-slate-100 space-y-5">
               <div>
                 <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
-                  Who can apply
+                  {t("whoCanApply")}
                 </h3>
                 <p className="text-xs sm:text-sm text-slate-700 font-semibold leading-relaxed">
                   {internshipData.whoCanApply}
@@ -235,7 +238,7 @@ const InternshipDetailPage = () => {
               {internshipData.perks && (
                 <div>
                   <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
-                    Perks
+                    {t("perks")}
                   </h3>
                   <div className="flex flex-wrap gap-2">
                     {(Array.isArray(internshipData.perks)
@@ -253,7 +256,7 @@ const InternshipDetailPage = () => {
               {internshipData.additionalInfo && (
                 <div>
                   <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
-                    Additional Information
+                    {t("additionalInfo")}
                   </h3>
                   <p className="text-xs sm:text-sm text-slate-650 font-medium">
                     {internshipData.additionalInfo}
@@ -263,7 +266,7 @@ const InternshipDetailPage = () => {
             </div>
 
             <div className="flex items-center space-x-3 text-slate-600">
-              <span className="text-xs font-bold text-slate-450 uppercase tracking-wider">Number of Openings:</span>
+              <span className="text-xs font-bold text-slate-450 uppercase tracking-wider">{t("numberOfOpenings")}:</span>
               <span className="px-2.5 py-0.5 bg-slate-100 text-slate-750 font-bold rounded-md text-xs">
                 {internshipData.numberOfOpening || "1"}
               </span>
@@ -282,7 +285,7 @@ const InternshipDetailPage = () => {
               }}
               className="px-10 py-3.5 bg-blue-600 text-white text-sm font-bold rounded-2xl shadow-lg shadow-blue-150 hover:bg-blue-700 hover:shadow-xl hover:shadow-blue-200 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200"
             >
-              Apply Now
+              {t("applyNow")}
             </button>
           </div>
         </div>
@@ -295,9 +298,9 @@ const InternshipDetailPage = () => {
             <div className="p-6 sm:p-8 border-b border-slate-100">
               <div className="flex justify-between items-center">
                 <div>
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Application form</span>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{t("applicationForm")}</span>
                   <h2 className="text-xl sm:text-2xl font-bold text-slate-800 font-heading mt-0.5">
-                    Apply to {internshipData.company}
+                    {t("applyTo", { company: internshipData.company })}
                   </h2>
                 </div>
                 <button
@@ -314,9 +317,9 @@ const InternshipDetailPage = () => {
               <div className="bg-blue-50/50 border border-blue-100 rounded-2xl p-4 flex items-start space-x-3">
                 <span className="text-blue-600 mt-0.5">📝</span>
                 <div>
-                  <h3 className="text-xs font-bold text-blue-800 uppercase tracking-wider">Your Resume</h3>
-                  <p className="text-xs text-blue-650 mt-1 leading-relaxed">
-                    Your current profile resume and career history details will be submitted dynamically with this application.
+                  <h3 className="text-xs font-bold text-blue-800 uppercase tracking-wider">{t("yourResume")}</h3>
+                  <p className="text-xs text-blue-655 mt-1 leading-relaxed">
+                    {t("resumeSubmitDetails")}
                   </p>
                 </div>
               </div>
@@ -324,41 +327,41 @@ const InternshipDetailPage = () => {
               {/* Cover Letter Input */}
               <div>
                 <label className="block text-xs font-bold text-slate-450 uppercase tracking-wider mb-2">
-                  Cover Letter
+                  {t("coverLetter")}
                 </label>
                 <p className="text-xs text-slate-450 mb-3">
-                  Why should the hiring team select you for this internship opportunity?
+                  {t("whySelectIntern")}
                 </p>
                 <textarea
                   value={coverLetter}
                   onChange={(e) => setCoverLetter(e.target.value)}
                   className="w-full h-36 p-4 border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-xs sm:text-sm text-slate-700 placeholder-slate-400 transition-all font-medium"
-                  placeholder="Describe your skills, experiences, and interest in this role..."
+                  placeholder={t("coverLetterPlaceholder")}
                 />
               </div>
 
               {/* Availability Options */}
               <div>
                 <label className="block text-xs font-bold text-slate-450 uppercase tracking-wider mb-3">
-                  Your Availability
+                  {t("yourAvailability")}
                 </label>
                 <div className="space-y-2.5">
                   {[
-                    "Yes, I am available to join immediately",
-                    "No, I am currently on notice period",
-                    "No, I will have to serve notice period",
-                    "Other",
+                    { value: "Yes, I am available to join immediately", key: "availImmediate" },
+                    { value: "No, I am currently on notice period", key: "availNotice" },
+                    { value: "No, I will have to serve notice period", key: "availWillServe" },
+                    { value: "Other", key: "availOther" },
                   ].map((option) => (
-                    <label key={option} className="flex items-center space-x-3 p-3 bg-slate-50 hover:bg-slate-100/70 border border-slate-150 rounded-xl cursor-pointer transition-colors group">
+                    <label key={option.value} className="flex items-center space-x-3 p-3 bg-slate-50 hover:bg-slate-100/70 border border-slate-150 rounded-xl cursor-pointer transition-colors group">
                       <input
                         type="radio"
                         name="availability"
-                        value={option}
-                        checked={availability === option}
+                        value={option.value}
+                        checked={availability === option.value}
                         onChange={(e) => setAvailability(e.target.value)}
                         className="h-4.5 w-4.5 text-blue-600 focus:ring-blue-500/25 border-slate-250 cursor-pointer"
                       />
-                      <span className="text-xs sm:text-sm font-semibold text-slate-650 group-hover:text-slate-800 transition-colors">{option}</span>
+                      <span className="text-xs sm:text-sm font-semibold text-slate-650 group-hover:text-slate-800 transition-colors">{t(option.key)}</span>
                     </label>
                   ))}
                 </div>
@@ -370,21 +373,21 @@ const InternshipDetailPage = () => {
                   onClick={() => setIsModalOpen(false)}
                   className="px-5 py-2.5 border border-slate-200 text-xs font-bold rounded-xl text-slate-600 hover:bg-slate-55 transition-colors"
                 >
-                  Cancel
+                  {t("cancel")}
                 </button>
                 {user ? (
                   <button
                     className="px-6 py-2.5 bg-blue-600 text-white text-xs font-bold rounded-xl hover:bg-blue-700 shadow-md shadow-blue-100 hover:shadow-lg active:scale-98 transition-all"
                     onClick={handlesubmitapplication}
                   >
-                    Submit Application
+                    {t("submitApplication")}
                   </button>
                 ) : (
                   <Link
                     href={`/`}
                     className="px-6 py-2.5 bg-blue-600 text-white text-xs font-bold rounded-xl hover:bg-blue-700 shadow-md shadow-blue-100 hover:shadow-lg text-center transition-all"
                   >
-                    Sign up to apply
+                    {t("signUpToApply")}
                   </Link>
                 )}
               </div>
@@ -394,6 +397,14 @@ const InternshipDetailPage = () => {
       )}
     </div>
   );
+};
+
+export const getServerSideProps = async ({ locale }: any) => {
+  return {
+    props: {
+      ...(await serverSideTranslations(locale || "en", ["common"])),
+    },
+  };
 };
 
 export default InternshipDetailPage;
