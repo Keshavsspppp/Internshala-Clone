@@ -416,7 +416,30 @@ router.post("/verify-payment", authMiddleware, async (req, res) => {
       }
     } catch (storageError) {
       console.error("Firebase Storage upload failed:", storageError);
-      return res.status(500).json({ message: "Resume generated but storage failed. Please try again." });
+      
+      // Fallback locally in development mode to make local testing easier without Firebase credentials
+      if (process.env.NODE_ENV !== "production") {
+        console.warn("Development mode: Falling back to local storage for generated resume PDF.");
+        const fs = require("fs");
+        const path = require("path");
+        const resumesDir = path.join(__dirname, "../public/resumes");
+        
+        // Ensure resumes directory exists
+        if (!fs.existsSync(resumesDir)) {
+          fs.mkdirSync(resumesDir, { recursive: true });
+        }
+        
+        const localPath = path.join(resumesDir, filename);
+        fs.writeFileSync(localPath, pdfBuffer);
+        
+        // Construct local URL using request protocol and host
+        downloadUrl = `${req.protocol}://${req.get("host")}/resumes/${filename}`;
+        console.log(`Local fallback resume URL: ${downloadUrl}`);
+      } else {
+        return res.status(500).json({ 
+          message: `Resume generated but storage failed. Please try again. Firebase Storage upload failed: ${storageError.message}` 
+        });
+      }
     }
 
     // Update user profile (Subscription model)

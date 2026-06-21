@@ -9,7 +9,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { login, logout, selectuser } from "@/Feature/Userslice";
 import axios from "axios";
 import { getLoginEnvironment } from "@/utils/loginEnvironment";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "next-i18next/pages";
 import {
   clearPendingOtpSession,
   clearVerifiedSession,

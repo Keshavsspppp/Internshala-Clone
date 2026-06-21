@@ -8,9 +8,38 @@ if (admin.getApps().length === 0) {
   if (!firebaseProjectId) {
     throw new Error("FIREBASE_PROJECT_ID env var is required");
   }
-  admin.initializeApp({
+
+  let credential;
+
+  // Option 1: Load from service account JSON string
+  if (process.env.FIREBASE_SERVICE_ACCOUNT_JSON) {
+    try {
+      const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
+      credential = admin.credential.cert(serviceAccount);
+    } catch (err) {
+      console.error("Failed to parse FIREBASE_SERVICE_ACCOUNT_JSON:", err);
+    }
+  }
+  // Option 2: Load from specific env variables
+  else if (process.env.FIREBASE_CLIENT_EMAIL && process.env.FIREBASE_PRIVATE_KEY) {
+    credential = admin.credential.cert({
+      projectId: firebaseProjectId,
+      clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+      privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
+    });
+  }
+  // Option 3: Fall back to GOOGLE_APPLICATION_CREDENTIALS path if set
+  else if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+    credential = admin.credential.applicationDefault();
+  }
+
+  const options = {
     projectId: firebaseProjectId
-  });
+  };
+  if (credential) {
+    options.credential = credential;
+  }
+  admin.initializeApp(options);
 }
 
 const authMiddleware = async (req, res, next) => {
