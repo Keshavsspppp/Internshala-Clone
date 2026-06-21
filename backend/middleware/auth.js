@@ -1,4 +1,5 @@
 const admin = require("firebase-admin");
+const { cert, applicationDefault } = require("firebase-admin");
 const { getAuth } = require("firebase-admin/auth");
 const jwt = require("jsonwebtoken");
 
@@ -15,14 +16,14 @@ if (admin.getApps().length === 0) {
   if (process.env.FIREBASE_SERVICE_ACCOUNT_JSON) {
     try {
       const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
-      credential = admin.credential.cert(serviceAccount);
+      credential = cert(serviceAccount);
     } catch (err) {
       console.error("Failed to parse FIREBASE_SERVICE_ACCOUNT_JSON:", err);
     }
   }
   // Option 2: Load from specific env variables
   else if (process.env.FIREBASE_CLIENT_EMAIL && process.env.FIREBASE_PRIVATE_KEY) {
-    credential = admin.credential.cert({
+    credential = cert({
       projectId: firebaseProjectId,
       clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
       privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
@@ -30,7 +31,7 @@ if (admin.getApps().length === 0) {
   }
   // Option 3: Fall back to GOOGLE_APPLICATION_CREDENTIALS path if set
   else if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
-    credential = admin.credential.applicationDefault();
+    credential = applicationDefault();
   }
 
   const options = {
