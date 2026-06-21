@@ -4,8 +4,11 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import React, { useState } from "react";
 import { toast } from "react-toastify";
+import { useTranslation } from "next-i18next/pages";
+import { serverSideTranslations } from "next-i18next/pages/serverSideTranslations";
 
 const AdminLoginPage = () => {
+  const { t } = useTranslation("common");
   const [formadata, setformadata] = useState({
     username: "",
     password: "",
@@ -22,7 +25,7 @@ const AdminLoginPage = () => {
   const handlesubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formadata.username || !formadata.password) {
-      toast.error("Please fill in all details");
+      toast.error(t("fillAllDetails", "Please fill in all details"));
       return;
     }
     try {
@@ -34,11 +37,11 @@ const AdminLoginPage = () => {
       if (res.data.token) {
         localStorage.setItem("adminToken", res.data.token);
       }
-      toast.success("Logged in successfully.");
+      toast.success(t("loggedInSuccessfully", "Logged in successfully."));
       router.push("/adminpanel");
     } catch (error) {
       console.log(error);
-      toast.error("Invalid credentials");
+      toast.error(t("invalidCredentials", "Invalid credentials"));
     } finally {
       setisloading(false);
     }
@@ -47,10 +50,10 @@ const AdminLoginPage = () => {
     <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <h2 className="text-center text-3xl font-extrabold text-gray-900">
-          Admin Login
+          {t("adminLogin", "Admin Login")}
         </h2>
         <p className="mt-2 text-center text-sm text-gray-600">
-          Access the admin dashboard to manage internships and applications
+          {t("adminDashboardAccessDesc", "Access the admin dashboard to manage internships and applications")}
         </p>
       </div>
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
@@ -61,7 +64,7 @@ const AdminLoginPage = () => {
                 htmlFor="username"
                 className="block text-sm font-medium text-gray-700"
               >
-                Username
+                {t("usernameLabel", "Username")}
               </label>
               <div className="mt-1 relative rounded-md shadow-sm">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -75,7 +78,7 @@ const AdminLoginPage = () => {
                   value={formadata.username}
                   onChange={handlechange}
                   className="block w-full text-black pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                  placeholder="Enter your username"
+                  placeholder={t("usernamePlaceholder", "Enter your username")}
                 />
               </div>
             </div>
@@ -84,7 +87,7 @@ const AdminLoginPage = () => {
                 htmlFor="password"
                 className="block text-sm font-medium text-gray-700"
               >
-                Password
+                {t("passwordLabel", "Password")}
               </label>
               <div className="mt-1 relative rounded-md shadow-sm">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -98,7 +101,7 @@ const AdminLoginPage = () => {
                   value={formadata.password}
                   onChange={handlechange}
                   className="block w-full text-black pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                  placeholder="Enter your password"
+                  placeholder={t("passwordPlaceholder", "Enter your password")}
                 />
               </div>
             </div>
@@ -107,7 +110,7 @@ const AdminLoginPage = () => {
                 href="/forgot-password"
                 className="text-sm font-medium text-blue-600 hover:text-blue-700"
               >
-                Forgot password?
+                {t("forgotPasswordLink", "Forgot password?")}
               </Link>
             </div>
             <div>
@@ -119,10 +122,10 @@ const AdminLoginPage = () => {
                 {isloading ? (
                   <div className="flex items-center">
                     <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-white mr-2"></div>
-                    Signing in...
+                    {t("signingIn", "Signing in...")}
                   </div>
                 ) : (
-                  " Sign in"
+                  t("signInButton", "Sign in")
                 )}
               </button>
             </div>
@@ -132,5 +135,9 @@ const AdminLoginPage = () => {
     </div>
   );
 };
+
+export const getStaticProps = async ({ locale }: { locale: string }) => ({
+  props: { ...(await serverSideTranslations(locale, ["common"])) },
+});
 
 export default AdminLoginPage;

@@ -10,8 +10,11 @@ import {
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import axios from 'axios';
+import { useTranslation } from 'next-i18next/pages';
+import { serverSideTranslations } from 'next-i18next/pages/serverSideTranslations';
 
 const AdminPanelPage = () => {
+    const { t } = useTranslation('common');
     const router = useRouter();
     const [counts, setCounts] = useState({ apps: 0, jobs: 0, internships: 0 });
     
@@ -40,51 +43,51 @@ const AdminPanelPage = () => {
     }, [router]);
 
     const stats = [
-        { label: 'Total Applications', value: String(counts.apps), change: '+12%', changeType: 'positive' },
-        { label: 'Active Jobs', value: String(counts.jobs), change: '+3%', changeType: 'positive' },
-        { label: 'Active Internships', value: String(counts.internships), change: '+24%', changeType: 'positive' },
-        { label: 'Conversion Rate', value: '5.25%', change: '-1.3%', changeType: 'negative' },
+        { label: t('totalApplications', 'Total Applications'), value: String(counts.apps), change: '+12%', changeType: 'positive' },
+        { label: t('activeJobs', 'Active Jobs'), value: String(counts.jobs), change: '+3%', changeType: 'positive' },
+        { label: t('activeInternships', 'Active Internships'), value: String(counts.internships), change: '+24%', changeType: 'positive' },
+        { label: t('conversionRate', 'Conversion Rate'), value: '5.25%', change: '-1.3%', changeType: 'negative' },
       ];
     
       const menuItems = [
         {
-          title: 'View Applications',
-          description: 'View and manage all applications from candidates',
+          title: t('viewApplicationsTitle', 'View Applications'),
+          description: t('viewApplicationsDesc', 'View and manage all applications from candidates'),
           icon: Mail,
           link: '/applications',
           color: 'bg-blue-50 text-blue-600 border-blue-100',
         },
         {
-          title: 'Post Job',
-          description: 'Create and publish new job opportunities',
+          title: t('postJobTitle', 'Post Job'),
+          description: t('postJobDesc', 'Create and publish new job opportunities'),
           icon: Briefcase,
           link: '/postJob',
           color: 'bg-emerald-50 text-emerald-600 border-emerald-100',
         },
         {
-          title: 'Post Internship',
-          description: 'Create and manage internship positions',
+          title: t('postInternshipTitle', 'Post Internship'),
+          description: t('postInternshipDesc', 'Create and manage internship positions'),
           icon: Send,
           link: '/postInternship',
           color: 'bg-indigo-50 text-indigo-600 border-indigo-100',
         },
         {
-          title: 'Manage Users',
-          description: 'View and manage user accounts',
+          title: t('manageUsersTitle', 'Manage Users'),
+          description: t('manageUsersDesc', 'View and manage user accounts'),
           icon: Users,
           link: '/users',
           color: 'bg-amber-50 text-amber-600 border-amber-100',
         },
         {
-          title: 'Analytics',
-          description: 'View detailed reports and statistics',
+          title: t('analyticsTitle', 'Analytics'),
+          description: t('analyticsDesc', 'View detailed reports and statistics'),
           icon: BarChart,
           link: '/analytics',
           color: 'bg-rose-50 text-rose-600 border-rose-100',
         },
         {
-          title: 'Settings',
-          description: 'Configure system preferences',
+          title: t('settingsTitle', 'Settings'),
+          description: t('settingsDesc', 'Configure system preferences'),
           icon: Settings,
           link: '/settings',
           color: 'bg-slate-100 text-slate-600 border-slate-200',
@@ -95,9 +98,11 @@ const AdminPanelPage = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 animate-slide-up">
         {/* Header */}
         <div className="mb-10">
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-800 font-heading tracking-tight">Admin Dashboard</h1>
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-800 font-heading tracking-tight">
+            {t("adminDashboardHeading", "Admin Dashboard")}
+          </h1>
           <p className="mt-1 text-xs sm:text-sm text-slate-500 font-medium">
-            Manage jobs, internships, and candidate profiles
+            {t("adminDashboardDesc", "Manage jobs, internships, and candidate profiles")}
           </p>
         </div>
 
@@ -159,5 +164,9 @@ const AdminPanelPage = () => {
     </div>
   )
 }
+
+export const getStaticProps = async ({ locale }: { locale: string }) => ({
+  props: { ...(await serverSideTranslations(locale, ["common"])) },
+});
 
 export default AdminPanelPage;

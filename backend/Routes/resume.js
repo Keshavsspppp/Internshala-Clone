@@ -23,7 +23,12 @@ const razorpay = new Razorpay({
 });
 
 const fontPath = path.join(__dirname, "../assets/Outfit.woff2");
-const fontB64 = fs.readFileSync(fontPath).toString("base64");
+let fontB64 = "";
+try {
+  fontB64 = fs.readFileSync(fontPath).toString("base64");
+} catch (e) {
+  console.warn("Outfit.woff2 not found — PDF will use system fonts as fallback");
+}
 
 const esc = (s) => String(s || "")
   .replace(/&/g, "&amp;")
@@ -42,7 +47,7 @@ const generateResumePdf = async (resumeData) => {
   <style>
     @font-face {
       font-family: 'Outfit';
-      src: url('data:font/woff2;base64,${fontB64}') format('woff2');
+      ${fontB64 ? `src: url('data:font/woff2;base64,${fontB64}') format('woff2');` : ""}
     }
     body {
       font-family: 'Outfit', sans-serif;

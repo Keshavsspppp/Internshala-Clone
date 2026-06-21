@@ -7,10 +7,12 @@ const UserSubscription = require("../Model/UserSubscription");
 
 const router = express.Router();
 
-// Initialize Razorpay
+if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
+  throw new Error("RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET are required env vars");
+}
 const razorpay = new Razorpay({
-  key_id: process.env.RAZORPAY_KEY_ID || "rzp_test_mockkey",
-  key_secret: process.env.RAZORPAY_KEY_SECRET || "mocksecret"
+  key_id: process.env.RAZORPAY_KEY_ID,
+  key_secret: process.env.RAZORPAY_KEY_SECRET
 });
 
 /**
@@ -76,7 +78,7 @@ router.post("/verify-payment", authMiddleware, async (req, res) => {
 
   try {
     const generatedSignature = crypto
-      .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET || "mocksecret")
+      .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
       .update(razorpay_order_id + "|" + razorpay_payment_id)
       .digest("hex");
 

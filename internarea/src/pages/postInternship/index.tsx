@@ -13,7 +13,10 @@ import {
 import { useRouter } from "next/router";
 import axios from "axios";
 import { toast } from "react-toastify";
+import { useTranslation } from "next-i18next/pages";
+import { serverSideTranslations } from "next-i18next/pages/serverSideTranslations";
 const PostInternshipPage = () => {
+  const { t } = useTranslation("common");
   const [formData, setFormData] = useState({
     title: "",
     company: "",
@@ -42,17 +45,17 @@ const PostInternshipPage = () => {
     e.preventDefault();
     const hasemptyfields = Object.values(formData).some((val) => !val.trim());
     if (hasemptyfields) {
-      toast.error("Please fill in all detials");
+      toast.error(t("fillAllDetails", "Please fill in all details"));
       return;
     }
     try {
       setisloading(true);
       const res = await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/api/internship`, formData);
-      toast.success("job posted successfuly");
+      toast.success(t("internshipPostedSuccess", "Internship posted successfully"));
       router.push("/adminpanel");
     } catch (error) {
       console.log(error);
-      toast.error("error posting job");
+      toast.error(t("errorPostingInternship", "Error posting internship"));
     } finally {
       setisloading(false);
     }
@@ -77,7 +80,7 @@ const PostInternshipPage = () => {
                 <div>
                   <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
                     <Briefcase className="h-3.5 w-3.5 text-slate-400" />
-                    <span>Title*</span>
+                    <span>{t("titleRequired", "Title*")}</span>
                   </label>
                   <input
                     type="text"
@@ -85,14 +88,14 @@ const PostInternshipPage = () => {
                     value={formData.title}
                     onChange={handleChange}
                     className="w-full px-3.5 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200 text-xs font-semibold"
-                    placeholder="e.g. Frontend Developer Intern"
+                    placeholder={t("titlePlaceholderInternship", "e.g. Frontend Developer Intern")}
                   />
                 </div>
 
                 <div>
                   <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
                     <Building2 className="h-3.5 w-3.5 text-slate-400" />
-                    <span>Company Name*</span>
+                    <span>{t("companyNameRequired", "Company Name*")}</span>
                   </label>
                   <input
                     type="text"
@@ -100,7 +103,7 @@ const PostInternshipPage = () => {
                     value={formData.company}
                     onChange={handleChange}
                     className="w-full px-3.5 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200 text-xs font-semibold"
-                    placeholder="e.g. Tech Solutions Inc"
+                    placeholder={t("companyNamePlaceholder", "e.g. Tech Solutions Inc")}
                   />
                 </div>
               </div>
@@ -109,7 +112,7 @@ const PostInternshipPage = () => {
                 <div>
                   <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
                     <MapPin className="h-3.5 w-3.5 text-slate-400" />
-                    <span>Location*</span>
+                    <span>{t("locationRequired", "Location*")}</span>
                   </label>
                   <input
                     type="text"
@@ -117,14 +120,14 @@ const PostInternshipPage = () => {
                     value={formData.location}
                     onChange={handleChange}
                     className="w-full px-3.5 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200 text-xs font-semibold"
-                    placeholder="e.g. Mumbai, India"
+                    placeholder={t("locationPlaceholder", "e.g. Mumbai, India")}
                   />
                 </div>
 
                 <div>
                   <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
                     <Tags className="h-3.5 w-3.5 text-slate-400" />
-                    <span>Category*</span>
+                    <span>{t("categoryRequired", "Category*")}</span>
                   </label>
                   <input
                     type="text"
@@ -132,7 +135,7 @@ const PostInternshipPage = () => {
                     value={formData.category}
                     onChange={handleChange}
                     className="w-full px-3.5 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200 text-xs font-semibold"
-                    placeholder="e.g. Software Development"
+                    placeholder={t("categoryPlaceholder", "e.g. Software Development")}
                   />
                 </div>
               </div>
@@ -143,7 +146,7 @@ const PostInternshipPage = () => {
               <div>
                 <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
                   <Info className="h-3.5 w-3.5 text-slate-400" />
-                  <span>About Company*</span>
+                  <span>{t("aboutCompanyRequired", "About Company*")}</span>
                 </label>
                 <textarea
                   name="aboutCompany"
@@ -151,14 +154,14 @@ const PostInternshipPage = () => {
                   onChange={handleChange}
                   rows={4}
                   className="w-full px-3.5 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200 text-xs font-semibold"
-                  placeholder="Describe your company..."
+                  placeholder={t("aboutCompanyPlaceholder", "Describe your company...")}
                 />
               </div>
 
               <div>
                 <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
                   <Briefcase className="h-3.5 w-3.5 text-slate-400" />
-                  <span>About Internship*</span>
+                  <span>{t("aboutInternshipRequired", "About Internship*")}</span>
                 </label>
                 <textarea
                   name="aboutInternship"
@@ -166,7 +169,7 @@ const PostInternshipPage = () => {
                   onChange={handleChange}
                   rows={4}
                   className="w-full px-3.5 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200 text-xs font-semibold"
-                  placeholder="Describe the internship role..."
+                  placeholder={t("aboutInternshipPlaceholder", "Describe the internship role...")}
                 />
               </div>
             </div>
@@ -176,7 +179,7 @@ const PostInternshipPage = () => {
               <div>
                 <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
                   <Users className="h-3.5 w-3.5 text-slate-400" />
-                  <span>Who Can Apply*</span>
+                  <span>{t("whoCanApplyRequired", "Who Can Apply*")}</span>
                 </label>
                 <textarea
                   name="whoCanApply"
@@ -184,14 +187,14 @@ const PostInternshipPage = () => {
                   onChange={handleChange}
                   rows={3}
                   className="w-full px-3.5 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200 text-xs font-semibold"
-                  placeholder="Eligibility criteria..."
+                  placeholder={t("whoCanApplyPlaceholder", "Eligibility criteria...")}
                 />
               </div>
 
               <div>
                 <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
                   <Info className="h-3.5 w-3.5 text-slate-400" />
-                  <span>Perks*</span>
+                  <span>{t("perksRequired", "Perks*")}</span>
                 </label>
                 <textarea
                   name="perks"
@@ -199,7 +202,7 @@ const PostInternshipPage = () => {
                   onChange={handleChange}
                   rows={3}
                   className="w-full px-3.5 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200 text-xs font-semibold"
-                  placeholder="List the perks..."
+                  placeholder={t("perksPlaceholder", "List the perks...")}
                 />
               </div>
             </div>
@@ -209,7 +212,7 @@ const PostInternshipPage = () => {
               <div>
                 <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
                   <Users className="h-3.5 w-3.5 text-slate-400" />
-                  <span>Number of Openings*</span>
+                  <span>{t("numberOfOpeningsRequired", "Number of Openings*")}</span>
                 </label>
                 <input
                   type="number"
@@ -218,14 +221,14 @@ const PostInternshipPage = () => {
                   onChange={handleChange}
                   min="1"
                   className="w-full px-3.5 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200 text-xs font-semibold"
-                  placeholder="e.g. 5"
+                  placeholder={t("numberOfOpeningsPlaceholder", "e.g. 5")}
                 />
               </div>
 
               <div>
                 <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
                   <DollarSign className="h-3.5 w-3.5 text-slate-400" />
-                  <span>Stipend*</span>
+                  <span>{t("stipendRequired", "Stipend*")}</span>
                 </label>
                 <input
                   type="text"
@@ -233,14 +236,14 @@ const PostInternshipPage = () => {
                   value={formData.stipend}
                   onChange={handleChange}
                   className="w-full px-3.5 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200 text-xs font-semibold"
-                  placeholder="e.g. ₹15,000/month"
+                  placeholder={t("stipendPlaceholder", "e.g. ₹15,000/month")}
                 />
               </div>
 
               <div>
                 <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
                   <Calendar className="h-3.5 w-3.5 text-slate-400" />
-                  <span>Start Date*</span>
+                  <span>{t("startDateRequired", "Start Date*")}</span>
                 </label>
                 <input
                   type="date"
@@ -254,7 +257,7 @@ const PostInternshipPage = () => {
               <div>
                 <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
                   <Info className="h-3.5 w-3.5 text-slate-400" />
-                  <span>Additional Information*</span>
+                  <span>{t("additionalInfoRequired", "Additional Information*")}</span>
                 </label>
                 <textarea
                   name="additionalInfo"
@@ -262,7 +265,7 @@ const PostInternshipPage = () => {
                   onChange={handleChange}
                   rows={3}
                   className="w-full px-3.5 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200 text-xs font-semibold"
-                  placeholder="Any additional details..."
+                  placeholder={t("additionalInfoPlaceholder", "Any additional details...")}
                 />
               </div>
             </div>
@@ -276,10 +279,10 @@ const PostInternshipPage = () => {
                 {isloading ? (
                   <div className="flex items-center">
                     <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2 text-white"></div>
-                    Posting Internship...
+                    {t("postingInternship", "Posting Internship...")}
                   </div>
                 ) : (
-                  "Post Internship"
+                  t("postInternshipButton", "Post Internship")
                 )}
               </button>
             </div>
@@ -289,5 +292,9 @@ const PostInternshipPage = () => {
     </div>
   );
 };
+
+export const getStaticProps = async ({ locale }: { locale: string }) => ({
+  props: { ...(await serverSideTranslations(locale, ["common"])) },
+});
 
 export default PostInternshipPage;
