@@ -8,8 +8,12 @@ const router = require("./Routes/index");
 const port = process.env.PORT || 5000;
 
 const allowedOrigins = process.env.ALLOWED_ORIGINS
-  ? process.env.ALLOWED_ORIGINS.split(",")
-  : ["http://localhost:3000", "http://localhost:5173"];
+  ? process.env.ALLOWED_ORIGINS.split(",").map(o => o.trim())
+  : [
+      "http://localhost:3000",
+      "http://localhost:5173",
+      "https://internshala-clone-kappa.vercel.app"
+    ];
 
 // Middleware to collapse double slashes in request URLs (e.g. //api/internship -> /api/internship)
 // to prevent route matching and CORS failures when the frontend API URL has a trailing slash.
@@ -25,10 +29,16 @@ const corsOptions = {
   origin: function (origin, callback) {
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
-    if (allowedOrigins.includes(origin)) {
+
+    const isAllowed = allowedOrigins.includes(origin);
+    console.log(`CORS Request: origin=${origin}, allowed=${isAllowed}`);
+
+    if (isAllowed) {
       callback(null, true);
     } else {
-      callback(new Error("Not allowed by CORS"));
+      // Standard CORS behavior is to call callback(null, false).
+      // Passing an Error object triggers a 500 server exception, which breaks preflight OPTIONS requests.
+      callback(null, false);
     }
   },
   credentials: true,
