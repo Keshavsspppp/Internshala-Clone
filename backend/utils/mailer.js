@@ -19,6 +19,9 @@ const createTransporter = () => {
       user: process.env.SMTP_USER,
       pass: process.env.SMTP_PASS,
     },
+    connectionTimeout: 2500, // 2.5 seconds connection timeout
+    greetingTimeout: 2500,   // 2.5 seconds greeting timeout
+    socketTimeout: 5000,     // 5 seconds socket timeout
   });
 };
 

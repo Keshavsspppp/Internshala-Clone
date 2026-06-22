@@ -178,7 +178,26 @@ router.post("/login-attempt", async (req, res) => {
         operatingSystem,
       });
 
-      await userSecurity.save();
+      try {
+        await userSecurity.save();
+      } catch (saveError) {
+        if (saveError.name === "VersionError") {
+          console.warn("Mongoose VersionError detected on save. Reloading and retrying...");
+          const latestDoc = await UserSecurity.findOne({ uid: normalizedUser.uid });
+          if (latestDoc) {
+            latestDoc.pendingOtp = userSecurity.pendingOtp;
+            const attemptExists = (latestDoc.loginHistory || []).some(
+              h => h.attemptId === attemptId
+            );
+            if (!attemptExists && userSecurity.loginHistory && userSecurity.loginHistory.length > 0) {
+              latestDoc.loginHistory.push(userSecurity.loginHistory[userSecurity.loginHistory.length - 1]);
+            }
+            await latestDoc.save();
+          }
+        } else {
+          throw saveError;
+        }
+      }
 
       return res.status(200).json({
         status: "otp_required",
