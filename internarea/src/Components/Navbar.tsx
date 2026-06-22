@@ -138,10 +138,6 @@ const Navbar = () => {
     try {
       setIsSigningIn(true);
 
-      if (auth.currentUser) {
-        await signOut(auth);
-      }
-
       clearVerifiedSession();
       clearPendingOtpSession();
 
