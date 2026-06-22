@@ -398,7 +398,7 @@ router.post("/verify-payment", authMiddleware, async (req, res) => {
       if (admin.getApps().length > 0) {
         const { getStorage } = require("firebase-admin/storage");
         const bucket = getStorage().bucket(
-          process.env.FIREBASE_STORAGE_BUCKET || `${process.env.FIREBASE_PROJECT_ID}.firebasestorage.app`
+          process.env.FIREBASE_STORAGE_BUCKET || `${process.env.FIREBASE_PROJECT_ID}.appspot.com`
         );
         const file = bucket.file(`resumes/${filename}`);
         const token = crypto.randomUUID();
