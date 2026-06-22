@@ -8,19 +8,6 @@ const nextConfig: NextConfig = {
   },
   turbopack: {},
 
-  async headers() {
-    return [
-      {
-        source: "/:path*",
-        headers: [
-          {
-            key: "Cross-Origin-Opener-Policy",
-            value: "unsafe-none",
-          },
-        ],
-      },
-    ];
-  },
   webpack(config, { dev }) {
     if (dev) {
       // Use in-memory cache to avoid Windows file-lock errors
