@@ -22,7 +22,8 @@
     "mongoose": "^8.12.1",
     "nodemailer": "^9.0.1",
     "puppeteer": "^25.1.0",
-    "razorpay": "^2.9.6"
+    "razorpay": "^2.9.6",
+    "ua-parser-js": "^2.0.10"
   },
   "devDependencies": {
     "nodemon": "^3.1.9"

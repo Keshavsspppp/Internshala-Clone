@@ -3,6 +3,7 @@ const crypto = require("crypto");
 const UserSecurity = require("../Model/UserSecurity");
 const { sendOtpEmail } = require("../utils/mailer");
 const authMiddleware = require("../middleware/auth");
+const UAParser = require("ua-parser-js");
 
 const router = express.Router();
 
@@ -105,14 +106,10 @@ router.post("/login-attempt", async (req, res) => {
     });
   }
 
-  const browser = String(loginEnvironment.browser || "Unknown").trim() || "Unknown";
-  const operatingSystem =
-    String(loginEnvironment.operatingSystem || "Unknown").trim() || "Unknown";
-  const deviceType = ["desktop", "laptop", "mobile"].includes(
-    String(loginEnvironment.deviceType || "").trim()
-  )
-    ? String(loginEnvironment.deviceType).trim()
-    : "desktop";
+  const ua = new UAParser(req.headers["user-agent"]).getResult();
+  const browser = ua.browser.name || "Unknown";
+  const operatingSystem = ua.os.name || "Unknown";
+  const deviceType = ua.device.type === "mobile" ? "mobile" : "desktop";
   const ipAddress = getClientIp(req);
   const attemptId = createAttemptId();
 

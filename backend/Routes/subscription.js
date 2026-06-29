@@ -96,15 +96,6 @@ router.post("/verify-payment", authMiddleware, async (req, res) => {
     };
     const planName = planMapping[Number(amount)] || "Standard";
 
-    // Send invoice details via Nodemailer
-    await sendInvoiceEmail({
-      to: email,
-      amount: amount || 0,
-      orderId: razorpay_order_id,
-      paymentId: razorpay_payment_id,
-      planName
-    });
-
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 30);
 
@@ -119,6 +110,15 @@ router.post("/verify-payment", authMiddleware, async (req, res) => {
       },
       { upsert: true, new: true }
     );
+
+    // Send invoice details via Nodemailer
+    await sendInvoiceEmail({
+      to: email,
+      amount: amount || 0,
+      orderId: razorpay_order_id,
+      paymentId: razorpay_payment_id,
+      planName
+    });
 
     return res.status(200).json({
       success: true,
@@ -152,8 +152,8 @@ router.get("/status", authMiddleware, async (req, res) => {
     const limit = limits[planName];
 
     const ApplicationModel = require("../Model/Application");
-    const startOfMonth = new Date(new Date().setDate(1));
-    startOfMonth.setHours(0, 0, 0, 0);
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
     const applicationsUsed = await ApplicationModel.countDocuments({
       "user.email": userEmail,

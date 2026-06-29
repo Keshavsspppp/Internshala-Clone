@@ -1,4 +1,6 @@
 const express = require("express");
+const crypto = require("crypto");
+const admin = require("firebase-admin");
 const router = express.Router();
 const CommunityUser = require("../Model/CommunityUser");
 const PublicPost = require("../Model/PublicPost");
@@ -16,7 +18,7 @@ const getPostingLimit = (friendsCount) => {
     return 0;
   }
 
-  if (friendsCount > 10) {
+  if (friendsCount >= 10) {
     return Infinity;
   }
 
@@ -176,12 +178,13 @@ router.get("/feed", authMiddleware, async (req, res) => {
   try {
     const page = Math.max(parseInt(req.query.page) || 1, 1);
     const limit = 20;
+    const totalCount = await PublicPost.countDocuments();
     const posts = await PublicPost.find()
       .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
       .limit(limit)
       .lean();
-    return res.status(200).json(posts);
+    return res.status(200).json({ posts, totalCount, hasMore: (page * limit) < totalCount });
   } catch (error) {
     console.error("Unable to fetch feed:", error);
     return res.status(500).json({
@@ -376,32 +379,64 @@ router.post("/upload-media", authMiddleware, async (req, res) => {
       return res.status(400).json({ message: "Invalid file type." });
     }
 
-    // 2. Size validation (8 MB limit check)
-    const MAX_SIZE_BYTES = 8 * 1024 * 1024; // 8 MB
-    const sizeEstimate = Buffer.byteLength(base64, "utf8") * 0.75;
-    if (sizeEstimate > MAX_SIZE_BYTES) {
-      return res.status(413).json({ message: "File too large. Max 8 MB per upload." });
-    }
-
     // Clean up base64 prefix if present
     const base64Data = base64.replace(/^data:image\/\w+;base64,/, "").replace(/^data:video\/\w+;base64,/, "");
     const buffer = Buffer.from(base64Data, "base64");
 
-    const filename = `media_${Date.now()}_${Math.random().toString(36).slice(2)}${ext}`;
-    // Save to separate /public/media folder
-    const mediaDir = path.join(__dirname, "../public/media");
-
-    if (!fs.existsSync(mediaDir)) {
-      fs.mkdirSync(mediaDir, { recursive: true });
+    // 2. Size validation (8 MB limit check)
+    const MAX_SIZE_BYTES = 8 * 1024 * 1024; // 8 MB
+    if (buffer.length > MAX_SIZE_BYTES) {
+      return res.status(413).json({ message: "File too large. Max 8 MB per upload." });
     }
 
-    const localPath = path.join(mediaDir, filename);
-    fs.writeFileSync(localPath, buffer);
+    const filename = `media_${Date.now()}_${Math.random().toString(36).slice(2)}${ext}`;
+    let downloadUrl = "";
 
-    // Support absolute domain config or fallback to dynamic host
-    const backendUrl = process.env.BACKEND_URL || `${req.protocol}://${req.get("host")}`;
-    const downloadUrl = `${backendUrl}/media/${filename}`;
-    console.log(`Local media uploaded: ${downloadUrl}`);
+    try {
+      if (admin.getApps().length > 0) {
+        const { getStorage } = require("firebase-admin/storage");
+        const bucket = getStorage().bucket(
+          process.env.FIREBASE_STORAGE_BUCKET || `${process.env.FIREBASE_PROJECT_ID}.appspot.com`
+        );
+        const file = bucket.file(`media/${filename}`);
+        const token = crypto.randomUUID();
+        const contentType = isImage ? "image/" + ext.slice(1) : "video/" + ext.slice(1);
+        
+        await file.save(buffer, {
+          metadata: {
+            contentType,
+            metadata: {
+              firebaseStorageDownloadTokens: token
+            }
+          }
+        });
+        downloadUrl = `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodeURIComponent(file.name)}?alt=media&token=${token}`;
+      } else {
+        throw new Error("Firebase Admin app is not initialized.");
+      }
+    } catch (storageError) {
+      console.error("Firebase Storage upload failed:", storageError);
+      
+      if (process.env.NODE_ENV !== "production") {
+        console.warn("Development mode: Falling back to local storage for media.");
+        const mediaDir = path.join(__dirname, "../public/media");
+
+        if (!fs.existsSync(mediaDir)) {
+          fs.mkdirSync(mediaDir, { recursive: true });
+        }
+
+        const localPath = path.join(mediaDir, filename);
+        fs.writeFileSync(localPath, buffer);
+
+        const backendUrl = process.env.BACKEND_URL || `${req.protocol}://${req.get("host")}`;
+        downloadUrl = `${backendUrl}/media/${filename}`;
+        console.log(`Local fallback media URL: ${downloadUrl}`);
+      } else {
+        return res.status(500).json({
+          message: `Media upload failed: ${storageError.message}`
+        });
+      }
+    }
 
     return res.status(200).json({ url: downloadUrl });
   } catch (error) {

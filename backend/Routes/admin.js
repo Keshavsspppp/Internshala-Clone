@@ -157,16 +157,20 @@ router.post("/forgot-password", async (req, res) => {
     const newPassword = generateRandomPassword(12);
     const { passwordHash, passwordSalt } = hashPassword(newPassword);
 
-    adminAccount.passwordHash = passwordHash;
-    adminAccount.passwordSalt = passwordSalt;
-    adminAccount.lastPasswordResetAt = new Date();
-    adminAccount.lastResetAt = new Date();
-    await adminAccount.save();
-
-    await sendPasswordEmail({
+    const emailResult = await sendPasswordEmail({
       to: adminAccount.email,
       newPassword,
     });
+
+    if (emailResult.delivered) {
+      adminAccount.passwordHash = passwordHash;
+      adminAccount.passwordSalt = passwordSalt;
+      adminAccount.lastPasswordResetAt = new Date();
+      adminAccount.lastResetAt = new Date();
+      await adminAccount.save();
+    } else {
+      return res.status(500).json({ message: "Could not deliver reset email. Password not changed." });
+    }
 
     return res.json({
       message: "Password sent to your registered email.",

@@ -64,13 +64,15 @@ if (admin.getApps().length === 0) {
 
     privateKey = privateKey.trim();
 
-    console.log("Firebase Private Key Diagnostics (Post-Reconstruction):");
-    console.log("- Length:", privateKey.length);
-    console.log("- Starts with BEGIN:", privateKey.startsWith("-----BEGIN PRIVATE KEY-----"));
-    console.log("- Ends with END:", privateKey.endsWith("-----END PRIVATE KEY-----"));
-    console.log("- Newlines count:", privateKey.split("\n").length - 1);
-    console.log("- First 30 chars:", JSON.stringify(privateKey.substring(0, 30)));
-    console.log("- Last 30 chars:", JSON.stringify(privateKey.substring(privateKey.length - 30)));
+    if (process.env.NODE_ENV !== "production") {
+      console.log("Firebase Private Key Diagnostics (Post-Reconstruction):");
+      console.log("- Length:", privateKey.length);
+      console.log("- Starts with BEGIN:", privateKey.startsWith("-----BEGIN PRIVATE KEY-----"));
+      console.log("- Ends with END:", privateKey.endsWith("-----END PRIVATE KEY-----"));
+      console.log("- Newlines count:", privateKey.split("\n").length - 1);
+      console.log("- First 30 chars:", JSON.stringify(privateKey.substring(0, 30)));
+      console.log("- Last 30 chars:", JSON.stringify(privateKey.substring(privateKey.length - 30)));
+    }
 
     credential = cert({
       projectId: firebaseProjectId,

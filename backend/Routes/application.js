@@ -19,8 +19,8 @@ router.post("/", authMiddleware, async (req, res) => {
     const limits = { Free: 1, Bronze: 3, Silver: 5, Gold: Infinity };
     const limit = limits[sub?.planName] ?? limits.Free;
 
-    const startOfMonth = new Date(new Date().setDate(1));
-    startOfMonth.setHours(0, 0, 0, 0);
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
     const used = await application.countDocuments({
       "user.email": userEmail,
@@ -48,7 +48,7 @@ router.post("/", authMiddleware, async (req, res) => {
 });
 
 // GET / — Fetch all applications (or filtered by uid/email)
-router.get("/", async (req, res) => {
+router.get("/", authMiddleware, async (req, res) => {
   try {
     const { uid, email } = req.query;
     let query = {};
@@ -66,7 +66,7 @@ router.get("/", async (req, res) => {
 });
 
 // GET /:id — Fetch single application by ID
-router.get("/:id", async (req, res) => {
+router.get("/:id", authMiddleware, async (req, res) => {
   const { id } = req.params;
   try {
     const data = await application.findById(id);
