@@ -1,4 +1,7 @@
 import type { NextConfig } from "next";
+import path from "node:path";
+
+const workspaceRoot = path.resolve(process.cwd(), "..");
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
@@ -6,8 +9,8 @@ const nextConfig: NextConfig = {
     locales: ['en', 'es', 'hi', 'pt', 'zh', 'fr'],
     defaultLocale: 'en',
   },
-  turbopack: { root: process.cwd() },
-
+  outputFileTracingRoot: workspaceRoot,
+  turbopack: { root: workspaceRoot },
   webpack(config, { dev }) {
     if (dev) {
       // Use in-memory cache to avoid Windows file-lock errors
