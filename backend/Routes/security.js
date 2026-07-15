@@ -346,6 +346,7 @@ router.post("/login-attempt", authMiddleware, async (req, res) => {
       if (emailDeliveryFailed) {
         return res.status(503).json({
           status: "blocked",
+          code: "LOGIN_OTP_DELIVERY_FAILED",
           message: "The login verification email could not be delivered. Please try again later.",
         });
       }

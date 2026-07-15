@@ -20,6 +20,8 @@ import {
 } from "@/utils/securitySession";
 import { clearFrenchAccessToken, saveFrenchAccessToken } from "@/utils/languageAccess";
 
+const apiBaseUrl = String(process.env.NEXT_PUBLIC_API_URL || "").replace(/\/+$/, "");
+
 const Navbar = () => {
   const router = useRouter();
   const dispatch = useDispatch();
@@ -65,7 +67,7 @@ const Navbar = () => {
         setIsSendingLangOtp(true);
         const token = await auth.currentUser?.getIdToken();
         const response = await axios.post(
-          `${process.env.NEXT_PUBLIC_API_URL}/api/security/send-lang-otp`,
+          `${apiBaseUrl}/api/security/send-lang-otp`,
           {},
           { headers: { Authorization: `Bearer ${token}` } }
         );
@@ -102,7 +104,7 @@ const Navbar = () => {
       setIsVerifyingLangOtp(true);
       const token = await auth.currentUser?.getIdToken();
       const response = await axios.post(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/security/verify-lang-otp`,
+        `${apiBaseUrl}/api/security/verify-lang-otp`,
         {
           otp: pendingLangChange.otpCode.trim(),
         },
@@ -147,7 +149,7 @@ const Navbar = () => {
       const idToken = await authUser.getIdToken();
 
       const response = await axios.post(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/security/login-attempt`,
+        `${apiBaseUrl}/api/security/login-attempt`,
         {
           user: {
             uid: authUser.uid,
@@ -200,14 +202,23 @@ const Navbar = () => {
       clearPendingOtpSession();
       const signInResult = await signInWithPopup(auth, provider);
       await processAuthenticatedLogin(signInResult.user);
-    } catch (error) {
-      console.error(error);
+    } catch (error: any) {
+      const backendMessage = error?.response?.data?.message;
+      const isOtpDeliveryFailure =
+        error?.response?.status === 503 &&
+        error?.response?.data?.code === "LOGIN_OTP_DELIVERY_FAILED";
+
+      if (!isOtpDeliveryFailure) {
+        console.error(error);
+      }
       clearVerifiedSession();
       clearPendingOtpSession();
       setPendingOtpSession(null);
       await signOut(auth).catch(() => null);
       toast.error(
-        (error as any)?.response?.data?.message || "Login failed."
+        isOtpDeliveryFailure
+          ? "Google sign-in succeeded, but the required verification email could not be sent. Please try again later or contact support."
+          : backendMessage || "Login failed."
       );
     } finally {
       setIsSigningIn(false);
@@ -233,7 +244,7 @@ const Navbar = () => {
       const idToken = await auth.currentUser.getIdToken();
 
       const response = await axios.post(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/security/verify-otp`,
+        `${apiBaseUrl}/api/security/verify-otp`,
         {
           attemptId: pendingOtpSession.attemptId,
           otp: otpCode.trim(),

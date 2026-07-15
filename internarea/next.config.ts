@@ -5,6 +5,27 @@ const workspaceRoot = path.resolve(process.cwd(), "..");
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  async headers() {
+    return [
+      {
+        source: "/:path*",
+        headers: [
+          {
+            key: "Cross-Origin-Opener-Policy",
+            value: "same-origin-allow-popups",
+          },
+          {
+            key: "X-Content-Type-Options",
+            value: "nosniff",
+          },
+          {
+            key: "Referrer-Policy",
+            value: "strict-origin-when-cross-origin",
+          },
+        ],
+      },
+    ];
+  },
   i18n: {
     locales: ['en', 'es', 'hi', 'pt', 'zh', 'fr'],
     defaultLocale: 'en',
