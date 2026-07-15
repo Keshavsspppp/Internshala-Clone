@@ -14,9 +14,10 @@ const copy: Record<string, { title: string; home: string }> = {
 const ErrorPage = ({ statusCode }: { statusCode?: number }) => {
   const router = useRouter();
   const text = copy[router.locale || "en"] || copy.en;
+  const displayStatusCode = statusCode && statusCode >= 400 ? statusCode : 500;
   return (
     <main className="min-h-screen bg-slate-50 px-4 py-20 text-center">
-      <p className="text-sm font-bold text-blue-600">{statusCode || 500}</p>
+      <p className="text-sm font-bold text-blue-600">{displayStatusCode}</p>
       <h1 className="mt-3 text-3xl font-black text-slate-900">{text.title}</h1>
       <Link href="/" className="mt-8 inline-flex rounded-xl bg-blue-600 px-6 py-3 text-sm font-bold text-white">
         {text.home}

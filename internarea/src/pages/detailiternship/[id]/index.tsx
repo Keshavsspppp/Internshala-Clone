@@ -1,7 +1,6 @@
 import { selectuser } from "@/Feature/Userslice";
 import axios from "axios";
 import {
-  ArrowUpRight,
   Calendar,
   Clock,
   DollarSign,
@@ -110,11 +109,11 @@ const InternshipDetailPage = () => {
   }
   const handlesubmitapplication=async()=>{
     if(!coverLetter.trim()){
-      toast.error("please write a cover letter")
+      toast.error(t("coverLetterRequired"))
       return
     }
     if(!availability){
-      toast.error("please select your availability")
+      toast.error(t("availabilityRequired"))
       return
     }
     try {
@@ -128,11 +127,11 @@ const InternshipDetailPage = () => {
         availability
       }
       await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/api/application`,applicationdata)
-      toast.success("Application submit successfully")
+      toast.success(t("applicationSubmitted"))
       router.push('/internship')
     } catch (error: any) {
       console.error(error)
-      toast.error(error.response?.data?.message || error.response?.data?.error || "Failed to submit application")
+      toast.error(error.response?.data?.message || error.response?.data?.error || t("applicationSubmitFailed"))
     }
   }
   return (
@@ -279,7 +278,7 @@ const InternshipDetailPage = () => {
             <button
               onClick={() => {
                 if (!user) {
-                  toast.error("Please sign in to apply for this internship.");
+                  toast.error(t("signInToApplyInternship"));
                   return;
                 }
                 setIsModalOpen(true);

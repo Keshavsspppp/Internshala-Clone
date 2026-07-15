@@ -1,16 +1,34 @@
 import { Facebook, Twitter, Instagram } from "lucide-react";
 import { useTranslation } from "next-i18next/pages";
+import Link from "next/link";
 
 export default function Footer() {
   const { t } = useTranslation("common");
+  const sections = [
+    {
+      title: t("footerInternshipsByLocation"),
+      items: [t("workFromHome"), "Delhi NCR", "Bangalore", "Mumbai", "Hyderabad", "Pune"],
+    },
+    {
+      title: t("footerInternshipsByStream"),
+      items: [t("computerScience"), t("marketing"), t("finance"), t("graphicDesign"), t("dataScience"), t("contentWriting")],
+    },
+    {
+      title: t("footerJobsByStream"),
+      items: [t("fullStackDeveloper"), t("softwareEngineer"), t("businessDevelopment"), t("uxUiDesigner"), t("dataAnalyst"), t("productManager")],
+      links: true,
+    },
+    {
+      title: t("footerAboutInternArea"),
+      items: [t("aboutUs"), t("wereHiring"), t("hireInterns"), t("postAJob"), t("contactUs"), t("helpCenter")],
+      links: true,
+    },
+  ];
   return (
     <footer className="bg-slate-900 text-slate-300 py-16 border-t border-slate-800 mt-auto">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 gap-8">
-          <FooterSection title="Internships by Location" items={["Work From Home", "Delhi NCR", "Bangalore", "Mumbai", "Hyderabad", "Pune"]} />
-          <FooterSection title="Internships by Stream" items={["Computer Science", "Marketing", "Finance", "Graphic Design", "Data Science", "Content Writing"]} />
-          <FooterSection title="Jobs by Streams" items={["Full Stack Developer", "Software Engineer", "Business Development", "UX/UI Designer", "Data Analyst", "Product Manager"]} links />
-          <FooterSection title="About InternArea" items={["About us", "We're hiring", "Hire interns", "Post a job", "Contact us", "Help center"]} links />
+          {sections.map((section) => <FooterSection key={section.title} {...section} />)}
         </div>
 
         <hr className="my-10 border-slate-800" />
@@ -40,9 +58,9 @@ function FooterSection({ title, items, links }: any) {
       <div className="flex flex-col items-start mt-4 space-y-2.5">
         {items.map((item: any, index: any) =>
           links ? (
-            <a key={index} href="/" className="text-sm text-slate-400 hover:text-blue-500 transition-colors duration-200">
+            <Link key={index} href="/" className="text-sm text-slate-400 hover:text-blue-500 transition-colors duration-200">
               {item}
-            </a>
+            </Link>
           ) : (
             <p key={index} className="text-sm text-slate-400 hover:text-blue-500 cursor-pointer transition-colors duration-200">
               {item}

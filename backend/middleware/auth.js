@@ -8,7 +8,7 @@ const { verifyUserSession } = require("../utils/userSession");
 if (admin.getApps().length === 0) {
   const firebaseProjectId = process.env.FIREBASE_PROJECT_ID;
   if (!firebaseProjectId) {
-    throw new Error("FIREBASE_PROJECT_ID env var is required");
+    console.warn("FIREBASE_PROJECT_ID is not configured; Firebase-protected features will be unavailable.");
   }
 
   let credential;
@@ -87,7 +87,7 @@ if (admin.getApps().length === 0) {
   }
 
   const options = {
-    projectId: firebaseProjectId
+    projectId: firebaseProjectId || "unconfigured-firebase-project"
   };
   if (credential) {
     options.credential = credential;

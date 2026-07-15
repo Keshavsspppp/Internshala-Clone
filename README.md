@@ -50,7 +50,7 @@ interareaInternship/
 ## 🛠️ Technology Stack
 
 ### Frontend
-* **Core Framework**: Next.js 15 (Pages Router), React 19, TypeScript 5
+* **Core Framework**: Next.js 16 (Pages Router), React 19, TypeScript 5
 * **State Management**: Redux Toolkit & React Redux
 * **Authentication**: Firebase Authentication (Google Auth provider)
 * **Styling**: Tailwind CSS v4.0 + PostCSS
@@ -113,6 +113,14 @@ NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your_firebase_sender_id
 NEXT_PUBLIC_FIREBASE_APP_ID=your_firebase_app_id
 ```
 
+Generate each JWT secret independently with:
+
+```bash
+node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"
+```
+
+Never commit `.env`, Firebase service-account JSON, Razorpay secrets, SMTP passwords, or JWT secrets.
+
 ---
 
 ## 🚀 Local Development Setup
@@ -154,3 +162,30 @@ Ensure that both components are ready for deployment:
   ```bash
   npm run build
   ```
+
+## Production deployment checklist
+
+### Vercel (`internarea` root directory)
+
+Configure every `NEXT_PUBLIC_*` value from `internarea/.env.example`. Set
+`NEXT_PUBLIC_API_URL` to the HTTPS Render backend URL without a trailing slash.
+The build command is `npm run build` and the framework preset is Next.js.
+
+### Render (`backend` root directory)
+
+Use `npm install` as the build command, `npm start` as the start command, and
+`/health` as the health-check path. Copy every required value from
+`backend/.env.example`. The `/health` response reports only configuration
+booleans and returns HTTP 503 until MongoDB, Firebase Admin, email, Razorpay,
+Cloudinary, CORS, storage, and signing secrets are ready.
+
+Firebase Authentication must have Google and Email/Password providers enabled,
+and the Vercel hostname must be listed under Firebase authorized domains. Upload
+the Firebase service-account JSON as a Render secret file and point
+`GOOGLE_APPLICATION_CREDENTIALS` to its mounted path.
+
+Before accepting real payments, switch Razorpay from test keys to live keys and
+perform one controlled transaction between 10:00 AM and 11:00 AM IST. Confirm
+that the invoice arrives, the subscription limit changes, and the Razorpay
+dashboard shows the same captured amount. Do the equivalent ₹50 resume purchase
+with a test student before enabling the feature for general users.

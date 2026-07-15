@@ -10,6 +10,9 @@ const nextConfig: NextConfig = {
     defaultLocale: 'en',
   },
   outputFileTracingRoot: workspaceRoot,
+  outputFileTracingIncludes: {
+    "/*": ["./public/locales/**/*.json"],
+  },
   turbopack: { root: workspaceRoot },
   webpack(config, { dev }) {
     if (dev) {

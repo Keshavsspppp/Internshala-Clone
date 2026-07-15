@@ -11,9 +11,6 @@ const DEFAULT_ADMIN_EMAIL =
   process.env.ADMIN_EMAIL || "admin@internarea.com";
 const DEFAULT_ADMIN_PHONE = process.env.ADMIN_PHONE || "9999999999";
 const DEFAULT_ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
-if (!DEFAULT_ADMIN_PASSWORD) {
-  throw new Error("ADMIN_PASSWORD env var is required");
-}
 
 const hashPassword = (password, salt = crypto.randomBytes(16).toString("hex")) => {
   const passwordHash = crypto
@@ -57,6 +54,9 @@ const isSameDay = (firstDate, secondDate) => {
 const normalizePhone = (phone = "") => phone.replace(/\D/g, "");
 
 const ensureAdminAccount = async () => {
+  if (!DEFAULT_ADMIN_PASSWORD) {
+    throw new Error("ADMIN_PASSWORD env var is required");
+  }
   let adminAccount = await AdminCredential.findOne({
     username: DEFAULT_ADMIN_USERNAME,
   });

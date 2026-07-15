@@ -44,6 +44,7 @@ next-env.d.ts
 # local generated resumes and media
 /public/resumes/
 /public/media/
+/.cache/
 
 # dev scratch scripts
 scratch_gold.js

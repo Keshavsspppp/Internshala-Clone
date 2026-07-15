@@ -69,6 +69,10 @@ const PendingOtpSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    lastSentAt: {
+      type: Date,
+      default: null,
+    },
   },
   { _id: false }
 );

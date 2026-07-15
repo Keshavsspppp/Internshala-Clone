@@ -8,6 +8,7 @@ const { verifiedAuthMiddleware: authMiddleware } = require("../middleware/auth")
 const { getEndOfISTDayUTC, getISTDateKey, getStartOfISTDayUTC } = require("../utils/istTime");
 const { getDailyPostingLimit } = require("../utils/communityLimits");
 const { reserveUsage, releaseUsage } = require("../utils/usageQuota");
+const { parseAllowedMediaDataUrl } = require("../utils/mediaValidation");
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -522,23 +523,11 @@ router.post("/upload-media", authMiddleware, async (req, res) => {
 
     const fs = require("fs");
     const path = require("path");
-
-    // 1. Extension and MIME type validation
-    const ALLOWED_EXTS = ['.jpg','.jpeg','.png','.gif','.webp','.mp4','.mov','.webm','.avi'];
-    const ext = path.extname(name).toLowerCase();
-    if (!ALLOWED_EXTS.includes(ext)) {
-      return res.status(400).json({ message: "Only image and video files are allowed." });
+    const parsedMedia = parseAllowedMediaDataUrl({ name, dataUrl: base64 });
+    if (!parsedMedia.valid) {
+      return res.status(400).json({ message: parsedMedia.message });
     }
-
-    const isImage = base64.startsWith("data:image/");
-    const isVideo = base64.startsWith("data:video/");
-    if (!isImage && !isVideo) {
-      return res.status(400).json({ message: "Invalid file type." });
-    }
-
-    // Clean up base64 prefix if present
-    const base64Data = base64.replace(/^data:image\/\w+;base64,/, "").replace(/^data:video\/\w+;base64,/, "");
-    const buffer = Buffer.from(base64Data, "base64");
+    const { buffer, extension: ext } = parsedMedia;
 
     // 2. Size validation (8 MB limit check)
     const MAX_SIZE_BYTES = 8 * 1024 * 1024; // 8 MB

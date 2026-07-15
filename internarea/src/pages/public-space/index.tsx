@@ -1,6 +1,6 @@
 import axios from "axios";
 import Link from "next/link";
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Globe,
   Heart,
@@ -132,7 +132,7 @@ const PublicSpacePage = () => {
     };
   }, [user]);
 
-  const getAuthHeaders = async () => {
+  const getAuthHeaders = useCallback(async () => {
     let currentUser = auth.currentUser;
     if (!currentUser) {
       currentUser = await new Promise((resolve) => {
@@ -144,9 +144,9 @@ const PublicSpacePage = () => {
     }
     const token = await currentUser?.getIdToken();
     return token ? { Authorization: `Bearer ${token}` } : {};
-  };
+  }, []);
 
-  const loadCommunityData = async () => {
+  const loadCommunityData = useCallback(async () => {
     if (!communityUser) {
       setLoading(false);
       return;
@@ -170,7 +170,7 @@ const PublicSpacePage = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [communityUser, getAuthHeaders]);
 
   const loadMoreFeed = async () => {
     if (loadingMore || !hasMoreFeed) return;
@@ -195,7 +195,7 @@ const PublicSpacePage = () => {
 
   useEffect(() => {
     loadCommunityData();
-  }, [communityUser?.email]);
+  }, [loadCommunityData]);
 
   // ── Firebase Storage Upload ──────────────────────────────────────────────
   const handleMediaUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -242,7 +242,7 @@ const PublicSpacePage = () => {
             )
           );
           toast.info(`${file.name} uploaded successfully.`);
-        } catch (err) {
+        } catch {
           setUploadingFiles((prev) =>
             prev.map((u) =>
               u.id === id ? { ...u, status: "error", progress: 0 } : u

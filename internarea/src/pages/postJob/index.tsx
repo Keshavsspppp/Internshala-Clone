@@ -1,4 +1,3 @@
-import { User, Lock } from "lucide-react";
 import React, { useState } from "react";
 import {
   Briefcase,
@@ -50,7 +49,7 @@ const PostJobPage = () => {
     }
     try {
       setisloading(true);
-      const res = await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/api/job`, formData);
+      await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/api/job`, formData);
       toast.success(t("jobPostedSuccess", "Job posted successfully"));
       router.push("/adminpanel");
     } catch (error) {

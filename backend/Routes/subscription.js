@@ -10,13 +10,19 @@ const { queueAndDeliverInvoice } = require("../utils/invoiceDelivery");
 
 const router = express.Router();
 
-if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
-  throw new Error("RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET are required env vars");
-}
-const razorpay = new Razorpay({
-  key_id: process.env.RAZORPAY_KEY_ID,
-  key_secret: process.env.RAZORPAY_KEY_SECRET
-});
+let razorpayClient = null;
+const getRazorpayClient = () => {
+  if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
+    throw new Error("RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET are required");
+  }
+  if (!razorpayClient) {
+    razorpayClient = new Razorpay({
+      key_id: process.env.RAZORPAY_KEY_ID,
+      key_secret: process.env.RAZORPAY_KEY_SECRET,
+    });
+  }
+  return razorpayClient;
+};
 
 /**
  * Check if the current time in IST is outside 10:00 AM - 11:00 AM.
@@ -62,7 +68,7 @@ router.post("/create-order", authMiddleware, async (req, res) => {
       },
     };
 
-    const order = await razorpay.orders.create(options);
+    const order = await getRazorpayClient().orders.create(options);
     return res.status(200).json({ ...order, keyId: process.env.RAZORPAY_KEY_ID });
   } catch (error) {
     console.error("Razorpay order creation failed:", error);
@@ -97,6 +103,7 @@ router.post("/verify-payment", authMiddleware, async (req, res) => {
       });
     }
 
+    const razorpay = getRazorpayClient();
     const [order, payment] = await Promise.all([
       razorpay.orders.fetch(razorpay_order_id),
       razorpay.payments.fetch(razorpay_payment_id),

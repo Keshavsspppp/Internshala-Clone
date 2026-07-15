@@ -1,4 +1,3 @@
-import { User, Lock } from "lucide-react";
 import React, { useState } from "react";
 import {
   Briefcase,
@@ -50,7 +49,7 @@ const PostInternshipPage = () => {
     }
     try {
       setisloading(true);
-      const res = await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/api/internship`, formData);
+      await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/api/internship`, formData);
       toast.success(t("internshipPostedSuccess", "Internship posted successfully"));
       router.push("/adminpanel");
     } catch (error) {

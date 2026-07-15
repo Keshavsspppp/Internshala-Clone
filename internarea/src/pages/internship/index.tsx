@@ -1,24 +1,20 @@
 import axios from "axios";
 import {
-  ArrowUpRight,
-  Calendar,
   Clock,
   DollarSign,
   Filter,
   Pin,
   PlayCircle,
-  Pointer,
   X,
   ChevronRight,
 } from "lucide-react";
 import Link from "next/link";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "next-i18next/pages";
 import { serverSideTranslations } from "next-i18next/pages/serverSideTranslations";
 
 const InternshipsPage = () => {
   const { t } = useTranslation("common");
-  const [filteredInternships, setfilteredInternships] = useState<any>([]);
   const [isFiltervisible, setisFiltervisible] = useState(false);
   const [filter, setfilters] = useState({
     category: "",
@@ -33,15 +29,13 @@ const InternshipsPage = () => {
       try {
         const res=await axios.get( `${process.env.NEXT_PUBLIC_API_URL}/api/internship`)     
         setinternship(res.data)
-        setfilteredInternships(res.data)
       } catch (error) {
         console.log(error)
       }
     }
     fetchdata()
   },[])
-  useEffect(() => {
-    const filtered = internshipData.filter((internship:any) => {
+  const filteredInternships = useMemo(() => internshipData.filter((internship:any) => {
       const matchesCategory = internship.category
         .toLowerCase()
         .includes(filter.category.toLowerCase());
@@ -49,9 +43,9 @@ const InternshipsPage = () => {
         .toLowerCase()
         .includes(filter.location.toLowerCase());
       return matchesCategory && matchesLocation;
-    });
-    setfilteredInternships(filtered);
-  }, [filter, internshipData]);
+    }),
+    [filter, internshipData]
+  );
   const handlefilterchange = (e: any) => {
     const { name, value, type, checked } = e.target;
     setfilters((prev) => ({

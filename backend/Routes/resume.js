@@ -12,10 +12,13 @@ const PaymentTransaction = require("../Model/PaymentTransaction");
 const { sendResumeOtpEmail } = require("../utils/mailer");
 const { verifiedAuthMiddleware: authMiddleware } = require("../middleware/auth");
 const { claimPayment, completePayment, failPayment } = require("../utils/paymentTransactions");
+const { getOtpRetryAfterSeconds } = require("../utils/otpPolicy");
+const { isAllowedRemoteImageUrl } = require("../utils/remoteImage");
+const { PAID_SUBSCRIPTION_PLANS } = require("../utils/subscriptionPlans");
 
 const router = express.Router();
 const RESUME_PRICE_PAISE = 5000;
-const PREMIUM_RESUME_PLANS = ["Silver", "Gold"];
+const PREMIUM_RESUME_PLANS = PAID_SUBSCRIPTION_PLANS.map((plan) => plan.name);
 
 const signaturesMatch = (generated, received) => {
   const generatedBuffer = Buffer.from(String(generated), "utf8");
@@ -31,14 +34,19 @@ const findActivePremiumSubscription = (userEmail) =>
     expiresAt: { $gt: new Date() },
   });
 
-if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
-  throw new Error("RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET are required");
-}
-
-const razorpay = new Razorpay({
-  key_id: process.env.RAZORPAY_KEY_ID,
-  key_secret: process.env.RAZORPAY_KEY_SECRET
-});
+let razorpayClient = null;
+const getRazorpayClient = () => {
+  if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
+    throw new Error("RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET are required");
+  }
+  if (!razorpayClient) {
+    razorpayClient = new Razorpay({
+      key_id: process.env.RAZORPAY_KEY_ID,
+      key_secret: process.env.RAZORPAY_KEY_SECRET,
+    });
+  }
+  return razorpayClient;
+};
 
 const fontPath = path.join(__dirname, "../assets/Outfit.woff2");
 let fontB64 = "";
@@ -71,7 +79,7 @@ const generateResumePdf = async (resumeData, planName) => {
     : "en";
   const copy = RESUME_PDF_COPY[locale];
   const verifiedMember = copy.verified.replace("{{plan}}", esc(planName));
-  const safePhotoUrl = /^https?:\/\//.test(resumeData.photoUrl) ? resumeData.photoUrl : "";
+  const safePhotoUrl = isAllowedRemoteImageUrl(resumeData.photoUrl) ? resumeData.photoUrl : "";
   const htmlContent = `
 <!DOCTYPE html>
 <html>
@@ -279,11 +287,21 @@ router.post("/send-otp", authMiddleware, async (req, res) => {
   }
 
   try {
-    // Check if user is on a premium plan (Silver or Gold)
+    // Any active paid subscription is a premium plan for resume creation.
     const sub = await findActivePremiumSubscription(userEmail);
 
     if (!sub) {
-      return res.status(403).json({ message: "Only users on a premium subscription plan (Silver or Gold) can build a resume." });
+      return res.status(403).json({ message: "Only users on a paid subscription plan can build a resume." });
+    }
+
+    const existingOtp = await ResumeOtp.findOne({ email: userEmail }).lean();
+    const retryAfterSeconds = getOtpRetryAfterSeconds(existingOtp?.lastSentAt);
+    if (retryAfterSeconds > 0) {
+      res.set("Retry-After", String(retryAfterSeconds));
+      return res.status(429).json({
+        retryAfterSeconds,
+        message: `Please wait ${retryAfterSeconds} seconds before requesting another OTP.`,
+      });
     }
 
     const otp = String(crypto.randomInt(100000, 1000000));
@@ -292,7 +310,7 @@ router.post("/send-otp", authMiddleware, async (req, res) => {
 
     await ResumeOtp.findOneAndUpdate(
       { email: userEmail },
-      { otpHash, expiresAt, verified: false, verifiedAt: null, failedAttempts: 0 },
+      { otpHash, expiresAt, verified: false, verifiedAt: null, failedAttempts: 0, lastSentAt: new Date() },
       { upsert: true, new: true }
     );
 
@@ -372,7 +390,7 @@ router.post("/create-order", authMiddleware, async (req, res) => {
   try {
     const sub = await findActivePremiumSubscription(userEmail);
     if (!sub) {
-      return res.status(403).json({ message: "An active Silver or Gold plan is required." });
+      return res.status(403).json({ message: "An active paid subscription plan is required." });
     }
 
     const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000);
@@ -396,7 +414,7 @@ router.post("/create-order", authMiddleware, async (req, res) => {
       },
     };
 
-    const order = await razorpay.orders.create(options);
+    const order = await getRazorpayClient().orders.create(options);
     return res.status(200).json({ ...order, keyId: process.env.RAZORPAY_KEY_ID });
   } catch (error) {
     console.error("Error in /create-order:", error);
@@ -433,6 +451,7 @@ router.post("/verify-payment", authMiddleware, async (req, res) => {
       });
     }
 
+    const razorpay = getRazorpayClient();
     const [order, payment] = await Promise.all([
       razorpay.orders.fetch(razorpay_order_id),
       razorpay.payments.fetch(razorpay_payment_id),

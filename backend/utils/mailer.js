@@ -49,6 +49,8 @@ const hasSmtpConfig = () => {
   );
 };
 
+const hasEmailDeliveryConfig = () => Boolean(process.env.RESEND_API_KEY || hasSmtpConfig());
+
 const createTransporter = () => {
   return nodemailer.createTransport({
     host: process.env.SMTP_HOST,
@@ -289,6 +291,7 @@ const sendUserPasswordEmail = async ({ to, newPassword }) => {
 };
 
 module.exports = {
+  hasEmailDeliveryConfig,
   hasSmtpConfig,
   sendOtpEmail,
   sendInvoiceEmail,

@@ -429,9 +429,9 @@ const Navbar = () => {
           <div className="flex justify-between h-16 items-center">
             {/* Logo */}
             <div className="flex-shrink-0">
-              <a href="/" className="flex items-center gap-2 text-xl font-bold text-blue-600 transition-transform hover:scale-[1.02]">
+              <Link href="/" className="flex items-center gap-2 text-xl font-bold text-blue-600 transition-transform hover:scale-[1.02]">
                 <img src={"/logo.png"} alt="InternArea Logo" className="h-12 object-contain" />
-              </a>
+              </Link>
             </div>
             
             {/* Navigation Links */}
@@ -502,6 +502,7 @@ const Navbar = () => {
               <select
                 value={currentLocale}
                 onChange={(e) => handleLocaleChange(e.target.value)}
+                disabled={isSendingLangOtp}
                 className="bg-slate-50 border border-slate-200 rounded-full px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-100 text-xs font-semibold text-slate-700 cursor-pointer hover:border-slate-300 transition-all duration-200"
               >
                 {languages.map((lang) => (

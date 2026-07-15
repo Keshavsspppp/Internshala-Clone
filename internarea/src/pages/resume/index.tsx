@@ -11,14 +11,12 @@ import {
   CheckCircle, 
   CreditCard, 
   FileText, 
-  GraduationCap, 
   Key, 
   Lock, 
   Mail, 
   Plus, 
   Trash2, 
   User, 
-  Briefcase,
   UploadCloud,
   ChevronRight,
   ChevronLeft
@@ -51,8 +49,6 @@ const ResumeBuilderPage = () => {
   const [otpInput, setOtpInput] = useState("");
   const [isSendingOtp, setIsSendingOtp] = useState(false);
   const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
-  const [isOtpSent, setIsOtpSent] = useState(false);
-  const [isOtpVerified, setIsOtpVerified] = useState(false);
 
   // Resume form state
   const [resumeData, setResumeData] = useState({
@@ -101,7 +97,7 @@ const ResumeBuilderPage = () => {
           }
         );
 
-        if (["Silver", "Gold"].includes(response.data.planName)) {
+        if (["Bronze", "Silver", "Gold"].includes(response.data.planName)) {
           setIsPremiumPlan(true);
         }
       } catch (error) {
@@ -144,7 +140,6 @@ const ResumeBuilderPage = () => {
         }
       );
 
-      setIsOtpSent(true);
       if (response.data.developmentOtpPreview) {
         toast.info(`Development OTP Preview: ${response.data.developmentOtpPreview}`);
       } else {
@@ -176,7 +171,6 @@ const ResumeBuilderPage = () => {
         }
       );
 
-      setIsOtpVerified(true);
       toast.success("OTP verified successfully!");
       setActiveStep(3);
     } catch (error: any) {

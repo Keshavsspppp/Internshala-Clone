@@ -44,7 +44,7 @@ export const getVerifiedSession = (): VerifiedUserSession | null => {
 
   try {
     return JSON.parse(rawValue) as VerifiedUserSession;
-  } catch (error) {
+  } catch {
     window.localStorage.removeItem(VERIFIED_SESSION_KEY);
     return null;
   }
@@ -79,7 +79,7 @@ export const getPendingOtpSession = (): PendingOtpSession | null => {
 
   try {
     return JSON.parse(rawValue) as PendingOtpSession;
-  } catch (error) {
+  } catch {
     window.localStorage.removeItem(PENDING_OTP_KEY);
     return null;
   }

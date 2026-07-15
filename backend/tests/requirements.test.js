@@ -6,8 +6,17 @@ const {
   getStartOfISTMonthUTC,
   isWithinISTHourWindow,
 } = require("../utils/istTime");
-const { SUBSCRIPTION_PLANS, getPaidPlan } = require("../utils/subscriptionPlans");
+const {
+  PAID_SUBSCRIPTION_PLANS,
+  SUBSCRIPTION_PLANS,
+  getPaidPlan,
+} = require("../utils/subscriptionPlans");
 const { issueUserSession, verifyUserSession } = require("../utils/userSession");
+const { generateLetterPassword, isLetterOnlyPassword } = require("../utils/passwordReset");
+const { getOtpRetryAfterSeconds } = require("../utils/otpPolicy");
+const { isAllowedRemoteImageUrl } = require("../utils/remoteImage");
+const { parseAllowedMediaDataUrl } = require("../utils/mediaValidation");
+const { isChromeBrowserName, resolveDeviceType } = require("../utils/loginEnvironment");
 
 test("community posting limits match the friend rules", () => {
   assert.equal(getDailyPostingLimit(0), 0);
@@ -38,6 +47,61 @@ test("subscription plans have the required prices and monthly limits", () => {
   assert.deepEqual(getPaidPlan({ amount: 300 }), SUBSCRIPTION_PLANS.Silver);
   assert.deepEqual(getPaidPlan({ amount: 1000 }), SUBSCRIPTION_PLANS.Gold);
   assert.equal(SUBSCRIPTION_PLANS.Gold.applicationLimit, Infinity);
+  assert.deepEqual(
+    PAID_SUBSCRIPTION_PLANS.map((plan) => plan.name),
+    ["Bronze", "Silver", "Gold"]
+  );
+});
+
+test("generated reset passwords are random letter-only passwords", () => {
+  const samples = new Set(Array.from({ length: 20 }, () => generateLetterPassword()));
+  assert.equal(samples.size, 20);
+  for (const password of samples) {
+    assert.equal(password.length, 12);
+    assert.equal(isLetterOnlyPassword(password), true);
+  }
+  assert.equal(isLetterOnlyPassword("Letters123"), false);
+  assert.equal(isLetterOnlyPassword("Letters!"), false);
+});
+
+test("OTP resend policy enforces a one-minute cooldown", () => {
+  const now = new Date("2026-07-15T08:00:00.000Z");
+  assert.equal(getOtpRetryAfterSeconds(null, now), 0);
+  assert.equal(getOtpRetryAfterSeconds(new Date("2026-07-15T07:59:30.000Z"), now), 30);
+  assert.equal(getOtpRetryAfterSeconds(new Date("2026-07-15T07:59:00.000Z"), now), 0);
+});
+
+test("desktop and mobile Chrome variants require Chrome security rules", () => {
+  assert.equal(isChromeBrowserName("Chrome"), true);
+  assert.equal(isChromeBrowserName("Mobile Chrome"), true);
+  assert.equal(isChromeBrowserName("Chrome WebView"), true);
+  assert.equal(isChromeBrowserName("Firefox"), false);
+  assert.equal(resolveDeviceType({ serverDeviceType: "mobile", reportedDeviceType: "desktop" }), "mobile");
+  assert.equal(resolveDeviceType({ serverDeviceType: undefined, reportedDeviceType: "laptop" }), "laptop");
+});
+
+test("resume images only allow trusted HTTPS storage providers", () => {
+  assert.equal(isAllowedRemoteImageUrl("https://res.cloudinary.com/demo/image/upload/photo.jpg"), true);
+  assert.equal(isAllowedRemoteImageUrl("https://lh3.googleusercontent.com/photo.jpg"), true);
+  assert.equal(isAllowedRemoteImageUrl("http://169.254.169.254/latest/meta-data"), false);
+  assert.equal(isAllowedRemoteImageUrl("https://evil.example/photo.jpg"), false);
+});
+
+test("community media requires matching supported extensions and MIME types", () => {
+  const jpeg = parseAllowedMediaDataUrl({
+    name: "photo.jpg",
+    dataUrl: "data:image/jpeg;base64,aGVsbG8=",
+  });
+  assert.equal(jpeg.valid, true);
+  assert.equal(jpeg.buffer.toString(), "hello");
+  assert.equal(
+    parseAllowedMediaDataUrl({ name: "photo.jpg", dataUrl: "data:video/mp4;base64,aGVsbG8=" }).valid,
+    false
+  );
+  assert.equal(
+    parseAllowedMediaDataUrl({ name: "payload.svg", dataUrl: "data:image/svg+xml;base64,aGVsbG8=" }).valid,
+    false
+  );
 });
 
 test("verified platform sessions are signed and identity-bound", () => {

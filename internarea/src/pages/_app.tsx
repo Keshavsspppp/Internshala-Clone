@@ -54,7 +54,7 @@ function LocaleAccessGuard({ children }: { children: ReactNode }) {
             },
           }
         );
-      } catch (error) {
+      } catch {
         await router.replace(router.pathname, router.asPath, { locale: "en" });
       } finally {
         setIsChecking(false);
@@ -62,12 +62,57 @@ function LocaleAccessGuard({ children }: { children: ReactNode }) {
     });
 
     return () => unsubscribe();
-  }, [router.locale, router.pathname, router.asPath]);
+  }, [router]);
 
   if (isChecking) {
     return <div className="min-h-screen bg-white" />;
   }
   return <>{children}</>;
+}
+
+function AuthListener() {
+  const dispatch = useDispatch();
+  useEffect(() => {
+    const unsubscribe = auth.onAuthStateChanged(async (authuser) => {
+      if (authuser) {
+        const verifiedSession = getVerifiedSession();
+
+        if (verifiedSession?.uid === authuser.uid && verifiedSession.sessionToken) {
+          try {
+            const idToken = await authuser.getIdToken();
+            await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/api/security/session`, {
+              headers: {
+                Authorization: `Bearer ${idToken}`,
+                "X-InternArea-Session": verifiedSession.sessionToken,
+              },
+            });
+          } catch {
+            clearVerifiedSession();
+            dispatch(logout());
+            return;
+          }
+          dispatch(
+            login({
+              uid: authuser.uid,
+              photo: verifiedSession.photo || authuser.photoURL,
+              name: verifiedSession.name || authuser.displayName,
+              email: verifiedSession.email || authuser.email,
+              phoneNumber: verifiedSession.phoneNumber || authuser.phoneNumber,
+            })
+          );
+        } else {
+          dispatch(logout());
+        }
+      } else {
+        clearVerifiedSession();
+        clearPendingOtpSession();
+        dispatch(logout());
+      }
+    });
+
+    return () => unsubscribe();
+  }, [dispatch]);
+  return null;
 }
 
 function App({ Component, pageProps }: AppProps) {
@@ -104,51 +149,6 @@ function App({ Component, pageProps }: AppProps) {
       axios.interceptors.request.eject(requestInterceptor);
     };
   }, []);
-
-  function AuthListener() {
-    const dispatch = useDispatch();
-    useEffect(() => {
-      const unsubscribe = auth.onAuthStateChanged(async (authuser) => {
-        if (authuser) {
-          const verifiedSession = getVerifiedSession();
-
-          if (verifiedSession?.uid === authuser.uid && verifiedSession.sessionToken) {
-            try {
-              const idToken = await authuser.getIdToken();
-              await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/api/security/session`, {
-                headers: {
-                  Authorization: `Bearer ${idToken}`,
-                  "X-InternArea-Session": verifiedSession.sessionToken,
-                },
-              });
-            } catch (error) {
-              clearVerifiedSession();
-              dispatch(logout());
-              return;
-            }
-            dispatch(
-              login({
-                uid: authuser.uid,
-                photo: verifiedSession.photo || authuser.photoURL,
-                name: verifiedSession.name || authuser.displayName,
-                email: verifiedSession.email || authuser.email,
-                phoneNumber: verifiedSession.phoneNumber || authuser.phoneNumber,
-              })
-            );
-          } else {
-            dispatch(logout());
-          }
-        } else {
-          clearVerifiedSession();
-          clearPendingOtpSession();
-          dispatch(logout());
-        }
-      });
-
-      return () => unsubscribe();
-    }, [dispatch]);
-    return null;
-  }
 
   return (
     <Provider store={store}>

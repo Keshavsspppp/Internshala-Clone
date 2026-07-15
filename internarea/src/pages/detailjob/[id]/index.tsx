@@ -2,10 +2,7 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import React, { useEffect, useState } from "react";
 import {
-  ArrowUpRight,
   Book,
-  Calendar,
-  Cat,
   Clock,
   DollarSign,
   ExternalLink,
@@ -154,11 +151,11 @@ const JobDetailPage = () => {
   }
   const handlesubmitapplication = async () => {
     if (!coverLetter.trim()) {
-      toast.error("please write a cover letter");
+      toast.error(t("coverLetterRequired"));
       return;
     }
     if (!availability) {
-      toast.error("please select your availability");
+      toast.error(t("availabilityRequired"));
       return;
     }
     try {
@@ -175,11 +172,11 @@ const JobDetailPage = () => {
         `${process.env.NEXT_PUBLIC_API_URL}/api/application`,
         applicationdata
       );
-      toast.success("Application submit successfully");
+      toast.success(t("applicationSubmitted"));
       router.push("/job");
     } catch (error: any) {
       console.error(error);
-      toast.error(error.response?.data?.message || error.response?.data?.error || "Failed to submit application");
+      toast.error(error.response?.data?.message || error.response?.data?.error || t("applicationSubmitFailed"));
     }
   };
   return (
@@ -319,7 +316,7 @@ const JobDetailPage = () => {
             <button
               onClick={() => {
                 if (!user) {
-                  toast.error("Please sign in to apply for this job.");
+                  toast.error(t("signInToApplyJob"));
                   return;
                 }
                 setIsModalOpen(true);

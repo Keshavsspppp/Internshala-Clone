@@ -28,6 +28,10 @@ const LangOtpSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    lastSentAt: {
+      type: Date,
+      default: null,
+    },
   },
   {
     timestamps: true,

@@ -1,7 +1,11 @@
 const express = require("express");
 const crypto = require("crypto");
 const UserSecurity = require("../Model/UserSecurity");
-const { sendOtpEmail, sendUserPasswordEmail } = require("../utils/mailer");
+const {
+  hasEmailDeliveryConfig,
+  sendOtpEmail,
+  sendUserPasswordEmail,
+} = require("../utils/mailer");
 const authMiddleware = require("../middleware/auth");
 const { verifiedAuthMiddleware } = require("../middleware/auth");
 const UAParser = require("ua-parser-js");
@@ -11,6 +15,9 @@ const { issueUserSession } = require("../utils/userSession");
 const { getAuth } = require("firebase-admin/auth");
 const UserPasswordReset = require("../Model/UserPasswordReset");
 const { getISTDateKey } = require("../utils/istTime");
+const { generateLetterPassword } = require("../utils/passwordReset");
+const { getOtpRetryAfterSeconds } = require("../utils/otpPolicy");
+const { isChromeBrowserName, resolveDeviceType } = require("../utils/loginEnvironment");
 
 const router = express.Router();
 
@@ -26,15 +33,11 @@ const LOGIN_HISTORY_LIMIT = 20;
 const OTP_EXPIRY_MINUTES = 10;
 
 const normalizeEmail = (email = "") => String(email).trim().toLowerCase();
-const generateLetterPassword = (length = 12) => {
-  const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
-  return Array.from({ length }, () => letters[crypto.randomInt(0, letters.length)]).join("");
-};
-
 router.post("/forgot-password", async (req, res) => {
   const identifier = String(req.body.identifier || "").trim();
   if (!identifier) return res.status(400).json({ message: "Registered email or phone number is required." });
 
+  let resetReservation = null;
   try {
     let firebaseUser;
     if (identifier.includes("@")) {
@@ -48,11 +51,34 @@ router.post("/forgot-password", async (req, res) => {
       return res.status(400).json({ message: "This account has no registered email for secure delivery." });
     }
 
+    if (process.env.NODE_ENV === "production" && !hasEmailDeliveryConfig()) {
+      return res.status(503).json({ message: "Password reset email delivery is not configured." });
+    }
+
     const resetDateKey = getISTDateKey();
+    const reservationId = crypto.randomUUID();
+    const now = new Date();
+    const processingExpiresAt = new Date(now.getTime() + 10 * 60 * 1000);
     try {
-      await UserPasswordReset.findOneAndUpdate(
-        { uid: firebaseUser.uid, resetDateKey: { $ne: resetDateKey } },
-        { $set: { email: firebaseUser.email, resetDateKey, lastResetAt: new Date() }, $setOnInsert: { uid: firebaseUser.uid } },
+      resetReservation = await UserPasswordReset.findOneAndUpdate(
+        {
+          uid: firebaseUser.uid,
+          $or: [
+            { resetDateKey: { $ne: resetDateKey } },
+            { status: "failed" },
+            { status: "processing", processingExpiresAt: { $lte: now } },
+          ],
+        },
+        {
+          $set: {
+            email: firebaseUser.email,
+            resetDateKey,
+            status: "processing",
+            reservationId,
+            processingExpiresAt,
+          },
+          $setOnInsert: { uid: firebaseUser.uid },
+        },
         { upsert: true, new: true }
       );
     } catch (error) {
@@ -66,13 +92,32 @@ router.post("/forgot-password", async (req, res) => {
     await getAuth().updateUser(firebaseUser.uid, { password: newPassword });
     const emailResult = await sendUserPasswordEmail({ to: firebaseUser.email, newPassword });
     if (!emailResult.delivered && !emailResult.developmentPasswordPreview) {
-      return res.status(503).json({ message: "Password changed, but delivery failed. Contact support immediately." });
+      await UserPasswordReset.updateOne(
+        { uid: firebaseUser.uid, reservationId },
+        { $set: { status: "failed" }, $unset: { processingExpiresAt: 1 } }
+      );
+      return res.status(503).json({
+        message: "Password delivery failed. You can retry this option without waiting until tomorrow.",
+      });
     }
+    await UserPasswordReset.updateOne(
+      { uid: firebaseUser.uid, reservationId },
+      {
+        $set: { status: "completed", lastResetAt: new Date() },
+        $unset: { processingExpiresAt: 1 },
+      }
+    );
     return res.status(200).json({
       message: "Password sent to your registered email.",
       developmentPasswordPreview: emailResult.developmentPasswordPreview || null,
     });
   } catch (error) {
+    if (resetReservation?.uid && resetReservation?.reservationId) {
+      await UserPasswordReset.updateOne(
+        { uid: resetReservation.uid, reservationId: resetReservation.reservationId },
+        { $set: { status: "failed" }, $unset: { processingExpiresAt: 1 } }
+      ).catch(() => null);
+    }
     if (error?.code === "auth/user-not-found") {
       return res.status(404).json({ message: "No account was found with that email or phone number." });
     }
@@ -89,13 +134,7 @@ const normalizeUser = (user = {}) => ({
 });
 
 const getClientIp = (req) => {
-  const forwardedIp = req.headers["x-forwarded-for"];
-
-  if (typeof forwardedIp === "string" && forwardedIp.trim()) {
-    return forwardedIp.split(",")[0].trim();
-  }
-
-  return String(req.socket?.remoteAddress || "");
+  return String(req.ip || req.socket?.remoteAddress || "");
 };
 
 const isMobileAllowedRightNow = () => {
@@ -177,19 +216,10 @@ router.post("/login-attempt", authMiddleware, async (req, res) => {
   const ua = new UAParser(req.headers["user-agent"]).getResult();
   const browser = ua.browser.name || "Unknown";
   const operatingSystem = ua.os.name || "Unknown";
-  const serverMobileTypes = new Set(["mobile", "tablet"]);
-  const serverSaysMobile = serverMobileTypes.has(ua.device.type);
-  const reportedDeviceType = ["desktop", "laptop", "mobile"].includes(
-    loginEnvironment.deviceType
-  )
-    ? loginEnvironment.deviceType
-    : "desktop";
-  const deviceType =
-    serverSaysMobile || reportedDeviceType === "mobile"
-      ? "mobile"
-      : reportedDeviceType === "laptop"
-        ? "laptop"
-        : "desktop";
+  const deviceType = resolveDeviceType({
+    serverDeviceType: ua.device.type,
+    reportedDeviceType: loginEnvironment.deviceType,
+  });
   const ipAddress = getClientIp(req);
   const attemptId = createAttemptId();
 
@@ -227,8 +257,29 @@ router.post("/login-attempt", authMiddleware, async (req, res) => {
       });
     }
 
-    if (browser.toLowerCase() === "chrome") {
+    if (isChromeBrowserName(browser)) {
+      const retryAfterSeconds = getOtpRetryAfterSeconds(userSecurity.pendingOtp?.lastSentAt);
+      if (retryAfterSeconds > 0) {
+        appendAttempt(userSecurity, {
+          attemptId,
+          browser,
+          operatingSystem,
+          deviceType,
+          ipAddress,
+          status: "blocked",
+          reason: "A login OTP was requested too recently.",
+        });
+        await userSecurity.save();
+        res.set("Retry-After", String(retryAfterSeconds));
+        return res.status(429).json({
+          status: "blocked",
+          attemptId,
+          retryAfterSeconds,
+          message: `Please wait ${retryAfterSeconds} seconds before requesting another OTP.`,
+        });
+      }
       const otp = createOtp();
+      const lastSentAt = new Date();
       const expiresAt = new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000);
 
       appendAttempt(userSecurity, {
@@ -245,6 +296,7 @@ router.post("/login-attempt", authMiddleware, async (req, res) => {
         attemptId,
         codeHash: createOtpHash(otp),
         expiresAt,
+        lastSentAt,
       };
 
       const emailResult = await sendOtpEmail({
@@ -479,13 +531,22 @@ router.post("/send-lang-otp", verifiedAuthMiddleware, async (req, res) => {
 
   try {
     const LangOtp = require("../Model/LangOtp");
+    const existingOtp = await LangOtp.findOne({ email }).lean();
+    const retryAfterSeconds = getOtpRetryAfterSeconds(existingOtp?.lastSentAt);
+    if (retryAfterSeconds > 0) {
+      res.set("Retry-After", String(retryAfterSeconds));
+      return res.status(429).json({
+        retryAfterSeconds,
+        message: `Please wait ${retryAfterSeconds} seconds before requesting another OTP.`,
+      });
+    }
     const otp = String(crypto.randomInt(100000, 1000000));
     const otpHash = crypto.createHash("sha256").update(otp).digest("hex");
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
     await LangOtp.findOneAndUpdate(
       { email },
-      { otpHash, expiresAt, verified: false, verifiedAt: null, failedAttempts: 0 },
+      { otpHash, expiresAt, verified: false, verifiedAt: null, failedAttempts: 0, lastSentAt: new Date() },
       { upsert: true, new: true }
     );
 

@@ -6,7 +6,6 @@ import {
   User,
   Search,
 } from "lucide-react";
-import Link from "next/link";
 import axios from "axios";
 import { selectuser } from "@/Feature/Userslice";
 import { useSelector } from "react-redux";

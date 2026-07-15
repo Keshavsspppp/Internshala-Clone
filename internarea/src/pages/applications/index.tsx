@@ -3,7 +3,6 @@ import {
   Building2,
   Calendar,
   CheckCircle2,
-  Mail,
   Tag,
   User,
   XCircle,

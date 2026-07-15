@@ -1,7 +1,5 @@
 import axios from "axios";
 import {
-  ArrowUpRight,
-  Calendar,
   Clock,
   DollarSign,
   Filter,
@@ -11,13 +9,12 @@ import {
   ChevronRight,
 } from "lucide-react";
 import Link from "next/link";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "next-i18next/pages";
 import { serverSideTranslations } from "next-i18next/pages/serverSideTranslations";
 
 const JobsPage = () => {
   const { t } = useTranslation("common");
-  const [filteredjob, setfilteredjobs] = useState<any>([]);
   const [isFiltervisible, setisFiltervisible] = useState(false);
   const [filter, setfilters] = useState({
     category: "",
@@ -33,15 +30,13 @@ const JobsPage = () => {
       try {
         const res=await axios.get( `${process.env.NEXT_PUBLIC_API_URL}/api/job`)     
         setjob(res.data)
-        setfilteredjobs(res.data)
       } catch (error) {
         console.log(error)
       }
     }
     fetchdata()
   },[])
-  useEffect(() => {
-    const filtered = filteredJobs.filter((job:any) => {
+  const filteredjob = useMemo(() => filteredJobs.filter((job:any) => {
       const matchesCategory = job.category
         .toLowerCase()
         .includes(filter.category.toLowerCase());
@@ -49,9 +44,9 @@ const JobsPage = () => {
         .toLowerCase()
         .includes(filter.location.toLowerCase());
       return matchesCategory && matchesLocation;
-    });
-    setfilteredjobs(filtered);
-  }, [filter, filteredJobs]);
+    }),
+    [filter, filteredJobs]
+  );
   const handlefilterchange = (e: any) => {
     const { name, value, type, checked } = e.target;
     setfilters((prev) => ({
