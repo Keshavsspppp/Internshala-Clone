@@ -2,6 +2,7 @@ const admin = require("firebase-admin");
 const { cert, applicationDefault } = require("firebase-admin");
 const { getAuth } = require("firebase-admin/auth");
 const jwt = require("jsonwebtoken");
+const { verifyUserSession } = require("../utils/userSession");
 
 // Initialize Firebase Admin if not already initialized
 if (admin.getApps().length === 0) {
@@ -124,6 +125,7 @@ const authMiddleware = async (req, res, next) => {
           req.user = decodedAdmin;
           return next();
         }
+        return res.status(401).json({ error: "Unauthorized. Invalid token role." });
       } catch (jwtError) {
         // Both verification attempts failed
         console.error(
@@ -141,4 +143,29 @@ const authMiddleware = async (req, res, next) => {
   }
 };
 
+const verifiedAuthMiddleware = async (req, res, next) => {
+  return authMiddleware(req, res, () => {
+    if (req.user?.role === "admin") return next();
+
+    const sessionToken = String(req.headers["x-internarea-session"] || "").trim();
+    if (!sessionToken) {
+      return res.status(401).json({ error: "A verified InternArea login session is required." });
+    }
+
+    try {
+      const session = verifyUserSession(sessionToken);
+      const valid =
+        session.purpose === "verified-user-session" &&
+        session.uid === req.user.uid &&
+        String(session.email || "").toLowerCase() === String(req.user.email || "").toLowerCase();
+      if (!valid) throw new Error("Session identity mismatch");
+      req.verifiedSession = session;
+      return next();
+    } catch (error) {
+      return res.status(401).json({ error: "Verified login session is invalid or expired." });
+    }
+  });
+};
+
 module.exports = authMiddleware;
+module.exports.verifiedAuthMiddleware = verifiedAuthMiddleware;

@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from "react";
 import { useSelector } from "react-redux";
 import { selectuser } from "@/Feature/Userslice";
-import { auth, storage } from "@/firebase/firebase";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { auth } from "@/firebase/firebase";
 import axios from "axios";
 import { toast } from "react-toastify";
 import { useRouter } from "next/router";
+import { useTranslation } from "next-i18next/pages";
+import { serverSideTranslations } from "next-i18next/pages/serverSideTranslations";
 import { 
   CheckCircle, 
   CreditCard, 
@@ -38,11 +39,12 @@ type Experience = {
 };
 
 const ResumeBuilderPage = () => {
+  const { t } = useTranslation("common");
   const user = useSelector(selectuser);
   const router = useRouter();
   const [activeStep, setActiveStep] = useState(1);
   const [isCheckingPlan, setIsCheckingPlan] = useState(true);
-  const [isGoldPlan, setIsGoldPlan] = useState(false);
+  const [isPremiumPlan, setIsPremiumPlan] = useState(false);
   
   // Auth state
   const [emailInput, setEmailInput] = useState("");
@@ -99,8 +101,8 @@ const ResumeBuilderPage = () => {
           }
         );
 
-        if (response.data.planName === "Gold") {
-          setIsGoldPlan(true);
+        if (["Silver", "Gold"].includes(response.data.planName)) {
+          setIsPremiumPlan(true);
         }
       } catch (error) {
         console.error("Subscription check failed:", error);
@@ -141,7 +143,7 @@ const ResumeBuilderPage = () => {
           headers: { Authorization: `Bearer ${token}` }
         }
       );
-      
+
       setIsOtpSent(true);
       if (response.data.developmentOtpPreview) {
         toast.info(`Development OTP Preview: ${response.data.developmentOtpPreview}`);
@@ -191,15 +193,28 @@ const ResumeBuilderPage = () => {
 
     try {
       setIsUploadingPhoto(true);
-      const storageRef = ref(storage, `resumes/photos/${user?.uid}_${Date.now()}_${file.name}`);
-      const uploadResult = await uploadBytes(storageRef, file);
-      const url = await getDownloadURL(uploadResult.ref);
-      setResumeData(prev => ({ ...prev, photoUrl: url }));
-      toast.success("Photo uploaded successfully.");
+
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onloadend = async () => {
+        try {
+          const base64data = reader.result as string;
+          const uploadRes = await axios.post(
+            `${process.env.NEXT_PUBLIC_API_URL}/api/community/upload-media`,
+            { name: file.name, base64: base64data }
+          );
+          setResumeData(prev => ({ ...prev, photoUrl: uploadRes.data.url }));
+          toast.success("Photo uploaded successfully.");
+        } catch (err) {
+          console.error("Photo upload failed:", err);
+          toast.error("Failed to upload photo.");
+        } finally {
+          setIsUploadingPhoto(false);
+        }
+      };
     } catch (error) {
-      console.error("Photo upload failed:", error);
-      toast.error("Failed to upload photo.");
-    } finally {
+      console.error("Photo upload setup failed:", error);
+      toast.error("Failed to initiate upload.");
       setIsUploadingPhoto(false);
     }
   };
@@ -276,7 +291,7 @@ const ResumeBuilderPage = () => {
 
       // 2. Options for Razorpay
       const options = {
-        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || "rzp_test_T3tbDnwaj6pkS2",
+        key: order.keyId,
         amount: order.amount,
         currency: order.currency,
         name: "InternArea Resume Builder",
@@ -294,6 +309,7 @@ const ResumeBuilderPage = () => {
                 razorpay_signature: response.razorpay_signature,
                 resumeData: {
                   ...resumeData,
+                  locale: router.locale || "en",
                   qualifications: qualifications.filter(q => q.school && q.degree),
                   experience: experience.filter(e => e.company && e.role)
                 }
@@ -337,9 +353,9 @@ const ResumeBuilderPage = () => {
       <div className="min-h-[70vh] flex flex-col items-center justify-center bg-slate-50 px-4">
         <div className="text-center p-8 bg-white border border-slate-100 rounded-3xl shadow-xl max-w-md w-full">
           <Lock className="h-12 w-12 text-slate-400 mx-auto mb-4" />
-          <h2 className="text-xl font-black text-slate-800 font-heading">Authorization Required</h2>
+          <h2 className="text-xl font-black text-slate-800 font-heading">{t("resumeAuthRequired")}</h2>
           <p className="text-sm text-slate-500 mt-2 mb-6">
-            Please log in with Google to access the premium Resume Builder.
+            {t("resumeLoginRequired")}
           </p>
         </div>
       </div>
@@ -349,28 +365,28 @@ const ResumeBuilderPage = () => {
   if (isCheckingPlan) {
     return (
       <div className="min-h-[70vh] flex items-center justify-center bg-slate-50">
-        <p className="text-sm text-slate-500 font-semibold animate-pulse">Verifying subscription status...</p>
+        <p className="text-sm text-slate-500 font-semibold animate-pulse">{t("resumeCheckingPlan")}</p>
       </div>
     );
   }
 
-  if (!isGoldPlan) {
+  if (!isPremiumPlan) {
     return (
       <div className="min-h-[70vh] flex flex-col items-center justify-center bg-slate-50 px-4 animate-slide-up">
         <div className="text-center p-8 bg-white border border-slate-100 rounded-3xl shadow-xl max-w-lg w-full">
           <span className="px-3 py-1 bg-amber-50 text-amber-600 rounded-full text-[10px] font-bold uppercase tracking-wider">
-            Premium Feature Gold ⭐
+            {t("resumePremiumFeature")}
           </span>
-          <h2 className="text-2xl font-black text-slate-800 font-heading mt-4">Upgrade to Gold</h2>
+          <h2 className="text-2xl font-black text-slate-800 font-heading mt-4">{t("resumeUpgradePremium")}</h2>
           <p className="text-sm text-slate-500 mt-2.5 leading-relaxed">
-            The Resume Builder is a premium service reserved exclusively for Gold Tier subscribers. Upgrade your account now to unlock resume creation, unlimited applications, and instant downloads.
+            {t("resumePremiumAccess")}
           </p>
           <div className="mt-8 flex flex-col sm:flex-row justify-center gap-4">
             <button 
               onClick={() => router.push("/")}
               className="px-6 py-3 bg-blue-600 text-white font-bold text-xs rounded-xl shadow-md shadow-blue-100 hover:bg-blue-700 transition-colors"
             >
-              Back to Dashboard
+              {t("backToDashboard")}
             </button>
           </div>
         </div>
@@ -384,8 +400,8 @@ const ResumeBuilderPage = () => {
         
         {/* Step Indicator Header */}
         <div className="mb-10 text-center">
-          <h1 className="text-3xl font-black text-slate-800 font-heading">Premium Resume Builder</h1>
-          <p className="text-sm text-slate-500 mt-1">Generate a verified, ATS-friendly professional resume</p>
+          <h1 className="text-3xl font-black text-slate-800 font-heading">{t("premiumResumeBuilder")}</h1>
+          <p className="text-sm text-slate-500 mt-1">{t("resumeBuilderDescription")}</p>
           
           <div className="mt-8 flex items-center justify-between max-w-xl mx-auto">
             {[1, 2, 3, 4].map((step) => (
@@ -404,10 +420,10 @@ const ResumeBuilderPage = () => {
                   <span className={`text-[10px] font-bold mt-2 uppercase tracking-wider ${
                     activeStep === step ? "text-blue-600" : "text-slate-400"
                   }`}>
-                    {step === 1 && "OTP Request"}
-                    {step === 2 && "Verification"}
-                    {step === 3 && "Resume Info"}
-                    {step === 4 && "Checkout"}
+                    {step === 1 && t("otpRequest")}
+                    {step === 2 && t("verification")}
+                    {step === 3 && t("resumeInfo")}
+                    {step === 4 && t("checkout")}
                   </span>
                 </div>
                 {step < 4 && (
@@ -427,13 +443,13 @@ const ResumeBuilderPage = () => {
           {activeStep === 1 && (
             <div className="max-w-md mx-auto text-center py-6">
               <Mail className="h-10 w-10 text-blue-500 mx-auto mb-4" />
-              <h2 className="text-xl font-bold text-slate-800 font-heading">Verify Your Account</h2>
+              <h2 className="text-xl font-bold text-slate-800 font-heading">{t("verifyYourAccount")}</h2>
               <p className="text-xs text-slate-500 mt-2 mb-6">
-                To secure your session, we will send a 6-digit verification code to your email.
+                {t("resumeOtpDescription")}
               </p>
               
               <div className="text-left mb-6">
-                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Email Address</label>
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">{t("emailAddress")}</label>
                 <input
                   type="email"
                   value={emailInput}
@@ -448,7 +464,7 @@ const ResumeBuilderPage = () => {
                 disabled={isSendingOtp}
                 className="w-full flex items-center justify-center gap-2 bg-blue-600 text-white font-bold text-xs py-3.5 rounded-xl shadow-md shadow-blue-100 hover:bg-blue-700 transition-colors disabled:opacity-60"
               >
-                {isSendingOtp ? "Sending OTP..." : "Send Verification Code"}
+                {isSendingOtp ? t("sendingOtp") : t("sendVerificationCode")}
                 <ChevronRight size={14} />
               </button>
             </div>
@@ -458,13 +474,13 @@ const ResumeBuilderPage = () => {
           {activeStep === 2 && (
             <div className="max-w-md mx-auto text-center py-6">
               <Key className="h-10 w-10 text-blue-500 mx-auto mb-4" />
-              <h2 className="text-xl font-bold text-slate-800 font-heading">Enter Code</h2>
+              <h2 className="text-xl font-bold text-slate-800 font-heading">{t("enterCode")}</h2>
               <p className="text-xs text-slate-500 mt-2 mb-6">
-                Enter the 6-digit verification code sent to <span className="font-semibold text-slate-700">{emailInput}</span>.
+                {t("enterCodeDescription", { email: emailInput })}
               </p>
               
               <div className="text-left mb-6">
-                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Verification OTP</label>
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">{t("verificationOtp")}</label>
                 <input
                   type="text"
                   maxLength={6}
@@ -480,14 +496,14 @@ const ResumeBuilderPage = () => {
                   onClick={() => setActiveStep(1)}
                   className="flex-1 py-3.5 border border-slate-200 font-bold text-xs text-slate-650 rounded-xl hover:bg-slate-50 transition-colors"
                 >
-                  Back
+                  {t("back")}
                 </button>
                 <button
                   onClick={handleVerifyOtp}
                   disabled={isVerifyingOtp}
                   className="flex-1 bg-blue-600 text-white font-bold text-xs py-3.5 rounded-xl shadow-md shadow-blue-100 hover:bg-blue-700 transition-colors disabled:opacity-60"
                 >
-                  {isVerifyingOtp ? "Verifying..." : "Verify & Continue"}
+                  {isVerifyingOtp ? t("verifying") : t("verifyContinue")}
                 </button>
               </div>
             </div>
@@ -500,12 +516,12 @@ const ResumeBuilderPage = () => {
               {/* Personal Details */}
               <div>
                 <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4 border-b border-slate-100 pb-2">
-                  Personal Details
+                  {t("personalDetails")}
                 </h3>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Full Name *</label>
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{t("fullName")} *</label>
                     <input
                       type="text"
                       required
@@ -515,7 +531,7 @@ const ResumeBuilderPage = () => {
                     />
                   </div>
                   <div>
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Email Address *</label>
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{t("emailAddress")} *</label>
                     <input
                       type="email"
                       required
@@ -525,7 +541,7 @@ const ResumeBuilderPage = () => {
                     />
                   </div>
                   <div>
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Phone Number *</label>
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{t("phoneNumber")} *</label>
                     <input
                       type="tel"
                       required
@@ -536,7 +552,7 @@ const ResumeBuilderPage = () => {
                     />
                   </div>
                   <div>
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Location *</label>
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{t("location")} *</label>
                     <input
                       type="text"
                       required
@@ -563,11 +579,11 @@ const ResumeBuilderPage = () => {
                   )}
                   <div>
                     <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
-                      Resume Photo
+                      {t("resumePhoto")}
                     </label>
                     <label className="cursor-pointer inline-flex items-center gap-2 px-4 py-2 border border-slate-200 rounded-lg text-xs font-bold hover:bg-slate-50 transition-colors">
                       <UploadCloud size={14} className="text-slate-500" />
-                      <span>{isUploadingPhoto ? "Uploading..." : "Upload Photo"}</span>
+                      <span>{isUploadingPhoto ? t("uploading") : t("uploadPhoto")}</span>
                       <input 
                         type="file" 
                         accept="image/*" 
@@ -583,11 +599,11 @@ const ResumeBuilderPage = () => {
               {/* Profile Summary / Hobbies */}
               <div>
                 <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4 border-b border-slate-100 pb-2">
-                  Summary & Interests
+                  {t("summaryInterests")}
                 </h3>
                 <div className="space-y-4">
                   <div>
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">About Me / Professional Summary</label>
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{t("aboutMeSummary")}</label>
                     <textarea
                       rows={3}
                       value={resumeData.personalInfo.about}
@@ -601,7 +617,7 @@ const ResumeBuilderPage = () => {
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
-                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Skills (Comma-separated)</label>
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{t("skillsCommaSeparated")}</label>
                       <input
                         type="text"
                         value={resumeData.personalInfo.skills}
@@ -614,7 +630,7 @@ const ResumeBuilderPage = () => {
                       />
                     </div>
                     <div>
-                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Hobbies</label>
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{t("hobbies")}</label>
                       <input
                         type="text"
                         value={resumeData.personalInfo.hobbies}
@@ -634,13 +650,13 @@ const ResumeBuilderPage = () => {
               <div>
                 <div className="flex justify-between items-center mb-4 border-b border-slate-100 pb-2">
                   <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider">
-                    Education
+                    {t("education")}
                   </h3>
                   <button
                     onClick={addQualification}
                     className="inline-flex items-center gap-1 text-[10px] font-bold text-blue-600 hover:text-blue-700 bg-blue-50 px-2.5 py-1.5 rounded-lg transition-colors"
                   >
-                    <Plus size={10} /> Add Education
+                    <Plus size={10} /> {t("addEducation")}
                   </button>
                 </div>
                 
@@ -658,7 +674,7 @@ const ResumeBuilderPage = () => {
                       
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Institution / School</label>
+                          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{t("institutionSchool")}</label>
                           <input
                             type="text"
                             value={qual.school}
@@ -668,7 +684,7 @@ const ResumeBuilderPage = () => {
                           />
                         </div>
                         <div>
-                          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Degree / Course</label>
+                          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{t("degreeCourse")}</label>
                           <input
                             type="text"
                             value={qual.degree}
@@ -678,7 +694,7 @@ const ResumeBuilderPage = () => {
                           />
                         </div>
                         <div>
-                          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Year of Completion</label>
+                          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{t("yearOfCompletion")}</label>
                           <input
                             type="text"
                             value={qual.year}
@@ -688,7 +704,7 @@ const ResumeBuilderPage = () => {
                           />
                         </div>
                         <div>
-                          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Percentage / CGPA</label>
+                          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{t("percentageCgpa")}</label>
                           <input
                             type="text"
                             value={qual.percentage}
@@ -707,13 +723,13 @@ const ResumeBuilderPage = () => {
               <div>
                 <div className="flex justify-between items-center mb-4 border-b border-slate-100 pb-2">
                   <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider">
-                    Work Experience
+                    {t("workExperience")}
                   </h3>
                   <button
                     onClick={addExperience}
                     className="inline-flex items-center gap-1 text-[10px] font-bold text-blue-600 hover:text-blue-700 bg-blue-50 px-2.5 py-1.5 rounded-lg transition-colors"
                   >
-                    <Plus size={10} /> Add Experience
+                    <Plus size={10} /> {t("addExperience")}
                   </button>
                 </div>
                 
@@ -731,7 +747,7 @@ const ResumeBuilderPage = () => {
                       
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                         <div>
-                          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Company Name</label>
+                          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{t("companyName")}</label>
                           <input
                             type="text"
                             value={exp.company}
@@ -741,7 +757,7 @@ const ResumeBuilderPage = () => {
                           />
                         </div>
                         <div>
-                          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Designation / Role</label>
+                          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{t("designationRole")}</label>
                           <input
                             type="text"
                             value={exp.role}
@@ -751,7 +767,7 @@ const ResumeBuilderPage = () => {
                           />
                         </div>
                         <div className="col-span-full">
-                          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Duration</label>
+                          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{t("duration")}</label>
                           <input
                             type="text"
                             value={exp.duration}
@@ -762,7 +778,7 @@ const ResumeBuilderPage = () => {
                         </div>
                       </div>
                       <div>
-                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Description</label>
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{t("description")}</label>
                         <textarea
                           rows={3}
                           value={exp.description}
@@ -782,13 +798,13 @@ const ResumeBuilderPage = () => {
                   onClick={() => setActiveStep(2)}
                   className="inline-flex items-center gap-1.5 px-6 py-3 border border-slate-200 font-bold text-xs text-slate-650 rounded-xl hover:bg-slate-50 transition-colors"
                 >
-                  <ChevronLeft size={14} /> Back
+                  <ChevronLeft size={14} /> {t("back")}
                 </button>
                 <button
                   onClick={() => setActiveStep(4)}
                   className="inline-flex items-center gap-1.5 px-6 py-3 bg-blue-600 text-white font-bold text-xs rounded-xl shadow-md shadow-blue-100 hover:bg-blue-700 transition-colors"
                 >
-                  Continue to Checkout <ChevronRight size={14} />
+                  {t("continueCheckout")} <ChevronRight size={14} />
                 </button>
               </div>
 
@@ -799,23 +815,23 @@ const ResumeBuilderPage = () => {
           {activeStep === 4 && (
             <div className="max-w-md mx-auto text-center py-6">
               <CreditCard className="h-10 w-10 text-blue-500 mx-auto mb-4" />
-              <h2 className="text-xl font-bold text-slate-800 font-heading">Generate Premium PDF</h2>
+              <h2 className="text-xl font-bold text-slate-800 font-heading">{t("generatePremiumPdf")}</h2>
               <p className="text-xs text-slate-500 mt-2 mb-6">
-                Complete your ₹50 payment to compile and secure your resume download.
+                {t("completeResumePayment")}
               </p>
 
               <div className="bg-slate-50 border border-slate-100 rounded-2xl p-6 text-left mb-8 space-y-3.5">
                 <div className="flex justify-between items-center text-xs">
-                  <span className="text-slate-400 font-semibold uppercase tracking-wider">Service Fee</span>
+                  <span className="text-slate-400 font-semibold uppercase tracking-wider">{t("serviceFee")}</span>
                   <span className="text-slate-800 font-bold">₹50.00</span>
                 </div>
                 <div className="flex justify-between items-center text-xs">
-                  <span className="text-slate-400 font-semibold uppercase tracking-wider">VAT / Taxes</span>
+                  <span className="text-slate-400 font-semibold uppercase tracking-wider">{t("taxes")}</span>
                   <span className="text-slate-800 font-bold">₹0.00</span>
                 </div>
                 <div className="h-[1px] bg-slate-200 w-full" />
                 <div className="flex justify-between items-center">
-                  <span className="text-slate-800 text-sm font-bold uppercase tracking-wider">Total Amount</span>
+                  <span className="text-slate-800 text-sm font-bold uppercase tracking-wider">{t("totalAmount")}</span>
                   <span className="text-blue-600 text-lg font-black font-heading">₹50.00</span>
                 </div>
               </div>
@@ -826,14 +842,14 @@ const ResumeBuilderPage = () => {
                   disabled={isInitiatingPayment}
                   className="flex-1 py-3.5 border border-slate-200 font-bold text-xs text-slate-650 rounded-xl hover:bg-slate-50 transition-colors disabled:opacity-50"
                 >
-                  Edit Details
+                  {t("editDetails")}
                 </button>
                 <button
                   onClick={handleCheckout}
                   disabled={isInitiatingPayment}
                   className="flex-1 flex items-center justify-center gap-2 bg-blue-600 text-white font-bold text-xs py-3.5 rounded-xl shadow-md shadow-blue-100 hover:bg-blue-700 transition-colors disabled:opacity-60"
                 >
-                  {isInitiatingPayment ? "Processing..." : "Pay ₹50 & Build"}
+                  {isInitiatingPayment ? t("processing") : t("payBuild")}
                   <CheckCircle size={14} />
                 </button>
               </div>
@@ -846,5 +862,9 @@ const ResumeBuilderPage = () => {
     </div>
   );
 };
+
+export const getStaticProps = async ({ locale }: { locale: string }) => ({
+  props: { ...(await serverSideTranslations(locale, ["common"])) },
+});
 
 export default ResumeBuilderPage;

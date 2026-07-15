@@ -6,7 +6,7 @@ const nextConfig: NextConfig = {
     locales: ['en', 'es', 'hi', 'pt', 'zh', 'fr'],
     defaultLocale: 'en',
   },
-  turbopack: {},
+  turbopack: { root: process.cwd() },
 
   webpack(config, { dev }) {
     if (dev) {
@@ -21,4 +21,3 @@ const nextConfig: NextConfig = {
 };
 
 export default nextConfig;
-

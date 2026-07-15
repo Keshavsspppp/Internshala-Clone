@@ -3,6 +3,12 @@ const Applicationipschema = new mongoose.Schema({
   company: String,
   category: String,
   coverLetter: String,
+  applicationType: {
+    type: String,
+    enum: ["internship", "job"],
+    required: true,
+  },
+  availability: String,
   user: Object,
   createdAt: {
     type: Date,

@@ -1,10 +1,13 @@
 const express = require("express");
 const router = express.Router();
 const Internship = require("../Model/Internship");
-const authMiddleware = require("../middleware/auth");
+const { verifiedAuthMiddleware: authMiddleware } = require("../middleware/auth");
 
 // POST / — Create new internship
 router.post("/", authMiddleware, async (req, res) => {
+  if (req.user.role !== "admin") {
+    return res.status(403).json({ error: "Administrator access is required." });
+  }
   try {
     const internshipData = new Internship({
       title: req.body.title,
@@ -31,7 +34,7 @@ router.post("/", authMiddleware, async (req, res) => {
 // GET / — Fetch all internships
 router.get("/", async (req, res) => {
   try {
-    const data = await Internship.find();
+    const data = await Internship.find().lean();
     return res.status(200).json(data);
   } catch (error) {
     console.error("Error fetching internships:", error);

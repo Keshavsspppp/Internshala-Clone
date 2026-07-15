@@ -4,6 +4,7 @@ const crypto = require("crypto");
 const jwt = require("jsonwebtoken");
 const AdminCredential = require("../Model/AdminCredential");
 const { sendPasswordEmail } = require("../utils/mailer");
+const { getISTDateKey } = require("../utils/istTime");
 
 const DEFAULT_ADMIN_USERNAME = process.env.ADMIN_USERNAME || "admin";
 const DEFAULT_ADMIN_EMAIL =
@@ -38,7 +39,7 @@ const generateRandomPassword = (length = 12) => {
   let generatedPassword = "";
 
   for (let index = 0; index < length; index += 1) {
-    const randomIndex = Math.floor(Math.random() * characters.length);
+    const randomIndex = crypto.randomInt(0, characters.length);
     generatedPassword += characters[randomIndex];
   }
 
@@ -50,12 +51,7 @@ const isSameDay = (firstDate, secondDate) => {
     return false;
   }
 
-  const toISTDateString = (d) => {
-    const ist = new Date(d.getTime() + 5.5 * 3600000);
-    return ist.toISOString().slice(0, 10); // "YYYY-MM-DD"
-  };
-
-  return toISTDateString(firstDate) === toISTDateString(secondDate);
+  return getISTDateKey(firstDate) === getISTDateKey(secondDate);
 };
 
 const normalizePhone = (phone = "") => phone.replace(/\D/g, "");
@@ -162,19 +158,20 @@ router.post("/forgot-password", async (req, res) => {
       newPassword,
     });
 
-    if (emailResult.delivered) {
+    if (emailResult.delivered || emailResult.developmentPasswordPreview) {
       adminAccount.passwordHash = passwordHash;
       adminAccount.passwordSalt = passwordSalt;
       adminAccount.lastPasswordResetAt = new Date();
       adminAccount.lastResetAt = new Date();
       await adminAccount.save();
+
+      return res.json({
+        message: "Password sent to your registered email.",
+        developmentPasswordPreview: emailResult.developmentPasswordPreview || null
+      });
     } else {
       return res.status(500).json({ message: "Could not deliver reset email. Password not changed." });
     }
-
-    return res.json({
-      message: "Password sent to your registered email.",
-    });
   } catch (error) {
     console.error("Forgot password failed:", error);
     return res.status(500).json({

@@ -3,7 +3,7 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import { auth, provider } from "../firebase/firebase";
 import { Search, Menu, X } from "lucide-react";
-import { signInWithPopup, signOut } from "firebase/auth";
+import { signInWithEmailAndPassword, signInWithPopup, signOut } from "firebase/auth";
 import { toast } from "react-toastify";
 import { useDispatch, useSelector } from "react-redux";
 import { login, logout, selectuser } from "@/Feature/Userslice";
@@ -18,6 +18,7 @@ import {
   savePendingOtpSession,
   saveVerifiedSession,
 } from "@/utils/securitySession";
+import { clearFrenchAccessToken, saveFrenchAccessToken } from "@/utils/languageAccess";
 
 const Navbar = () => {
   const router = useRouter();
@@ -41,6 +42,9 @@ const Navbar = () => {
   const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
   const [isSigningIn, setIsSigningIn] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [showEmailLogin, setShowEmailLogin] = useState(false);
+  const [emailLogin, setEmailLogin] = useState("");
+  const [passwordLogin, setPasswordLogin] = useState("");
 
   const [pendingLangChange, setPendingLangChange] = useState<{
     targetLocale: string;
@@ -59,9 +63,11 @@ const Navbar = () => {
 
       try {
         setIsSendingLangOtp(true);
+        const token = await auth.currentUser?.getIdToken();
         const response = await axios.post(
           `${process.env.NEXT_PUBLIC_API_URL}/api/security/send-lang-otp`,
-          { email: user.email }
+          {},
+          { headers: { Authorization: `Bearer ${token}` } }
         );
 
         setPendingLangChange({
@@ -94,14 +100,16 @@ const Navbar = () => {
 
     try {
       setIsVerifyingLangOtp(true);
-      await axios.post(
+      const token = await auth.currentUser?.getIdToken();
+      const response = await axios.post(
         `${process.env.NEXT_PUBLIC_API_URL}/api/security/verify-lang-otp`,
         {
-          email: pendingLangChange.email,
           otp: pendingLangChange.otpCode.trim(),
-        }
+        },
+        { headers: { Authorization: `Bearer ${token}` } }
       );
 
+      saveFrenchAccessToken(response.data.languageAccessToken);
       toast.success("Verification successful!");
       const target = pendingLangChange.targetLocale;
       setPendingLangChange(null);
@@ -118,13 +126,14 @@ const Navbar = () => {
     setPendingOtpSession(getPendingOtpSession());
   }, []);
 
-  const syncVerifiedUser = (authUser: any) => {
+  const syncVerifiedUser = (authUser: any, sessionToken: string) => {
     const verifiedUser = {
       uid: authUser.uid,
       photo: authUser.photoURL,
       name: authUser.displayName,
       email: authUser.email,
       phoneNumber: authUser.phoneNumber,
+      sessionToken,
     };
 
     saveVerifiedSession(verifiedUser);
@@ -134,15 +143,8 @@ const Navbar = () => {
     dispatch(login(verifiedUser));
   };
 
-  const handlelogin = async () => {
-    try {
-      setIsSigningIn(true);
-
-      clearVerifiedSession();
-      clearPendingOtpSession();
-
-      const signInResult = await signInWithPopup(auth, provider);
-      const authUser = signInResult.user;
+  const processAuthenticatedLogin = async (authUser: any) => {
+      const idToken = await authUser.getIdToken();
 
       const response = await axios.post(
         `${process.env.NEXT_PUBLIC_API_URL}/api/security/login-attempt`,
@@ -155,7 +157,8 @@ const Navbar = () => {
             phoneNumber: authUser.phoneNumber,
           },
           loginEnvironment: getLoginEnvironment(),
-        }
+        },
+        { headers: { Authorization: `Bearer ${idToken}` } }
       );
 
       if (response.data.status === "otp_required") {
@@ -181,11 +184,22 @@ const Navbar = () => {
           toast.info("OTP sent to your registered email.");
         }
 
+        setShowEmailLogin(false);
         return;
       }
 
-      syncVerifiedUser(authUser);
+      syncVerifiedUser(authUser, response.data.sessionToken);
+      setShowEmailLogin(false);
       toast.success("Logged in successfully.");
+  };
+
+  const handlelogin = async () => {
+    try {
+      setIsSigningIn(true);
+      clearVerifiedSession();
+      clearPendingOtpSession();
+      const signInResult = await signInWithPopup(auth, provider);
+      await processAuthenticatedLogin(signInResult.user);
     } catch (error) {
       console.error(error);
       clearVerifiedSession();
@@ -216,20 +230,18 @@ const Navbar = () => {
 
     try {
       setIsVerifyingOtp(true);
+      const idToken = await auth.currentUser.getIdToken();
 
-      await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/api/security/verify-otp`, {
-        user: {
-          uid: pendingOtpSession.uid,
-          photo: pendingOtpSession.photo,
-          name: pendingOtpSession.name,
-          email: pendingOtpSession.email,
-          phoneNumber: pendingOtpSession.phoneNumber,
+      const response = await axios.post(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/security/verify-otp`,
+        {
+          attemptId: pendingOtpSession.attemptId,
+          otp: otpCode.trim(),
         },
-        attemptId: pendingOtpSession.attemptId,
-        otp: otpCode.trim(),
-      });
+        { headers: { Authorization: `Bearer ${idToken}` } }
+      );
 
-      syncVerifiedUser(auth.currentUser);
+      syncVerifiedUser(auth.currentUser, response.data.sessionToken);
       toast.success("OTP verified successfully.");
     } catch (error) {
       console.error(error);
@@ -241,7 +253,34 @@ const Navbar = () => {
     }
   };
 
+  const handleEmailLogin = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!emailLogin.trim() || !passwordLogin) return;
+    try {
+      setIsSigningIn(true);
+      clearVerifiedSession();
+      clearPendingOtpSession();
+      const signInResult = await signInWithEmailAndPassword(
+        auth,
+        emailLogin.trim(),
+        passwordLogin
+      );
+      await processAuthenticatedLogin(signInResult.user);
+      setPasswordLogin("");
+    } catch (error) {
+      console.error(error);
+      clearVerifiedSession();
+      clearPendingOtpSession();
+      setPendingOtpSession(null);
+      await signOut(auth).catch(() => null);
+      toast.error((error as any)?.response?.data?.message || t("loginFailed"));
+    } finally {
+      setIsSigningIn(false);
+    }
+  };
+
   const handleCancelPendingLogin = async () => {
+    clearFrenchAccessToken();
     clearPendingOtpSession();
     clearVerifiedSession();
     setPendingOtpSession(null);
@@ -254,6 +293,7 @@ const Navbar = () => {
   };
 
   const handlelogout = async () => {
+    clearFrenchAccessToken();
     clearVerifiedSession();
     clearPendingOtpSession();
     setPendingOtpSession(null);
@@ -267,6 +307,42 @@ const Navbar = () => {
 
   return (
     <div className="relative">
+      {showEmailLogin ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+          <form onSubmit={handleEmailLogin} className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+            <h2 className="text-xl font-semibold text-gray-900">{t("emailLogin")}</h2>
+            <p className="mt-2 text-sm text-gray-600">{t("useEmailPassword")}</p>
+            <input
+              type="email"
+              required
+              value={emailLogin}
+              onChange={(event) => setEmailLogin(event.target.value)}
+              placeholder={t("emailAddress")}
+              className="mt-5 w-full rounded-lg border border-gray-300 px-4 py-3 text-gray-900 focus:border-blue-500 focus:outline-none"
+            />
+            <input
+              type="password"
+              required
+              value={passwordLogin}
+              onChange={(event) => setPasswordLogin(event.target.value)}
+              placeholder={t("password")}
+              className="mt-3 w-full rounded-lg border border-gray-300 px-4 py-3 text-gray-900 focus:border-blue-500 focus:outline-none"
+            />
+            <Link href="/forgot-password" className="mt-3 block text-right text-xs font-semibold text-blue-600">
+              {t("forgotPassword")}
+            </Link>
+            <div className="mt-5 flex gap-3">
+              <button disabled={isSigningIn} className="flex-1 rounded-lg bg-blue-600 px-4 py-3 text-sm font-medium text-white disabled:opacity-60">
+                {isSigningIn ? t("signingIn") : t("signIn")}
+              </button>
+              <button type="button" onClick={() => setShowEmailLogin(false)} disabled={isSigningIn} className="flex-1 rounded-lg border border-gray-300 px-4 py-3 text-sm font-medium text-gray-700">
+                {t("cancel")}
+              </button>
+            </div>
+          </form>
+        </div>
+      ) : null}
+
       {pendingOtpSession ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
           <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
@@ -485,6 +561,13 @@ const Navbar = () => {
                     <span className="text-slate-700">
                       {isSigningIn ? "Signing in..." : t("loginWithGoogle")}
                     </span>
+                  </button>
+                  <button
+                    onClick={() => setShowEmailLogin(true)}
+                    disabled={isSigningIn}
+                    className="text-xs font-semibold text-blue-600 hover:text-blue-800"
+                  >
+                    {t("signInEmail")}
                   </button>
                   <Link
                     href="/adminlogin"

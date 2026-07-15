@@ -1,10 +1,19 @@
 const express = require("express");
 const crypto = require("crypto");
-const admin = require("firebase-admin");
+const cloudinary = require("cloudinary").v2;
 const router = express.Router();
 const CommunityUser = require("../Model/CommunityUser");
 const PublicPost = require("../Model/PublicPost");
-const authMiddleware = require("../middleware/auth");
+const { verifiedAuthMiddleware: authMiddleware } = require("../middleware/auth");
+const { getEndOfISTDayUTC, getISTDateKey, getStartOfISTDayUTC } = require("../utils/istTime");
+const { getDailyPostingLimit } = require("../utils/communityLimits");
+const { reserveUsage, releaseUsage } = require("../utils/usageQuota");
+
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
 
 const normalizeEmail = (email = "") => String(email).trim().toLowerCase();
 const normalizeUserKey = (value = "") => String(value).trim().toLowerCase();
@@ -13,27 +22,8 @@ const buildUserKey = (user = {}) => {
   return normalizeUserKey(user.uid || user.email || user.name || "");
 };
 
-const getPostingLimit = (friendsCount) => {
-  if (friendsCount <= 0) {
-    return 0;
-  }
-
-  if (friendsCount >= 10) {
-    return Infinity;
-  }
-
-  return friendsCount;
-};
-
 const countTodayPosts = async (userKey) => {
-  const getISTMidnight = () => {
-    const now = new Date();
-    const istOffset = 5.5 * 60 * 60 * 1000;
-    const istNow = new Date(now.getTime() + istOffset);
-    istNow.setUTCHours(0, 0, 0, 0); // midnight in IST
-    return new Date(istNow.getTime() - istOffset); // back to UTC for MongoDB
-  };
-  const startOfDay = getISTMidnight();
+  const startOfDay = getStartOfISTDayUTC();
 
   return PublicPost.countDocuments({
     "author.userKey": userKey,
@@ -44,7 +34,7 @@ const countTodayPosts = async (userKey) => {
 const serializeProfile = async (profile) => {
   const todayPosts = await countTodayPosts(profile.userKey);
   const friendsCount = profile.friends.length;
-  const dailyPostLimit = getPostingLimit(friendsCount);
+  const dailyPostLimit = getDailyPostingLimit(friendsCount);
 
   return {
     _id: profile._id,
@@ -53,6 +43,7 @@ const serializeProfile = async (profile) => {
     email: profile.email,
     photo: profile.photo,
     friends: profile.friends,
+    friendRequests: profile.friendRequests || [],
     friendsCount,
     todayPosts,
     remainingPosts:
@@ -66,6 +57,7 @@ const serializeProfile = async (profile) => {
 
 const ensureCommunityUser = async (user = {}) => {
   const userKey = buildUserKey(user);
+  const registeredUid = String(user.uid || "").trim();
   const email = normalizeEmail(user.email);
   const name = String(user.name || "Community Member").trim();
 
@@ -73,11 +65,14 @@ const ensureCommunityUser = async (user = {}) => {
     throw new Error("User email is required");
   }
 
-  let profile = await CommunityUser.findOne({ userKey });
+  const identityMatches = [{ userKey }, { email }];
+  if (registeredUid) identityMatches.push({ registeredUid });
+  let profile = await CommunityUser.findOne({ $or: identityMatches });
 
   if (!profile) {
     profile = await CommunityUser.create({
       userKey,
+      registeredUid: registeredUid || undefined,
       name,
       email,
       photo: user.photo || "",
@@ -89,6 +84,7 @@ const ensureCommunityUser = async (user = {}) => {
 
   profile.name = name;
   profile.email = email;
+  if (registeredUid) profile.registeredUid = registeredUid;
   profile.photo = user.photo || profile.photo || "";
   await profile.save();
 
@@ -97,7 +93,12 @@ const ensureCommunityUser = async (user = {}) => {
 
 router.post("/profile", authMiddleware, async (req, res) => {
   try {
-    const profile = await ensureCommunityUser(req.body.user);
+    const profile = await ensureCommunityUser({
+      uid: req.user.uid,
+      email: req.user.email,
+      name: req.user.name,
+      photo: req.user.picture || req.user.photo || "",
+    });
     const serializedProfile = await serializeProfile(profile);
     return res.status(200).json(serializedProfile);
   } catch (error) {
@@ -109,24 +110,32 @@ router.post("/profile", authMiddleware, async (req, res) => {
 });
 
 router.post("/friends", authMiddleware, async (req, res) => {
-  const { user, friend } = req.body;
+  const { friend } = req.body;
 
   try {
-    const currentUser = await ensureCommunityUser(user);
-    const friendName = String(friend?.name || "").trim();
+    const currentUser = await ensureCommunityUser({
+      uid: req.user.uid,
+      email: req.user.email,
+      name: req.user.name,
+      photo: req.user.picture || req.user.photo || "",
+    });
     const friendEmail = normalizeEmail(friend?.email);
 
-    if (!friendName || !friendEmail) {
+    if (!friendEmail) {
       return res.status(400).json({
-        message: "Friend name and email are required.",
+        message: "Friend email is required.",
       });
     }
 
-    const friendUser = await ensureCommunityUser({
-      name: friendName,
+    const friendUser = await CommunityUser.findOne({
       email: friendEmail,
-      photo: friend?.photo || "",
+      registeredUid: { $exists: true, $ne: "" },
     });
+    if (!friendUser) {
+      return res.status(404).json({
+        message: "No registered Public Space user was found with that email.",
+      });
+    }
 
     if (friendUser.userKey === currentUser.userKey) {
       return res.status(400).json({
@@ -144,26 +153,30 @@ router.post("/friends", authMiddleware, async (req, res) => {
       });
     }
 
-    currentUser.friends.push({
-      userKey: friendUser.userKey,
-      name: friendUser.name,
-      email: friendUser.email,
-      photo: friendUser.photo,
-    });
-
-    friendUser.friends.push({
-      userKey: currentUser.userKey,
-      name: currentUser.name,
-      email: currentUser.email,
-      photo: currentUser.photo,
-    });
-
-    await currentUser.save();
-    await friendUser.save();
+    const updatedFriend = await CommunityUser.findOneAndUpdate(
+      {
+        _id: friendUser._id,
+        "friendRequests.userKey": { $ne: currentUser.userKey },
+      },
+      {
+        $push: {
+          friendRequests: {
+            userKey: currentUser.userKey,
+            name: currentUser.name,
+            email: currentUser.email,
+            photo: currentUser.photo,
+          },
+        },
+      },
+      { new: true }
+    );
+    if (!updatedFriend) {
+      return res.status(400).json({ message: "A friend request is already pending." });
+    }
 
     const serializedProfile = await serializeProfile(currentUser);
     return res.status(201).json({
-      message: "Friend added successfully.",
+      message: "Friend request sent. It will count after the user accepts it.",
       profile: serializedProfile,
     });
   } catch (error) {
@@ -174,11 +187,51 @@ router.post("/friends", authMiddleware, async (req, res) => {
   }
 });
 
+router.post("/friends/requests/:requesterKey/accept", authMiddleware, async (req, res) => {
+  try {
+    const currentUser = await ensureCommunityUser({
+      uid: req.user.uid,
+      email: req.user.email,
+      name: req.user.name,
+      photo: req.user.picture || req.user.photo || "",
+    });
+    const requesterKey = normalizeUserKey(req.params.requesterKey);
+    const request = currentUser.friendRequests.find((entry) => entry.userKey === requesterKey);
+    if (!request) return res.status(404).json({ message: "Friend request not found." });
+
+    const requester = await CommunityUser.findOne({ userKey: requesterKey });
+    if (!requester) return res.status(404).json({ message: "Requesting user no longer exists." });
+
+    // Update the requester first. If the second write is interrupted, the
+    // request remains visible and accepting it again safely completes both sides.
+    await CommunityUser.updateOne(
+      { _id: requester._id },
+      { $addToSet: { friends: { userKey: currentUser.userKey, name: currentUser.name, email: currentUser.email, photo: currentUser.photo } } }
+    );
+    await CommunityUser.updateOne(
+      { _id: currentUser._id, "friendRequests.userKey": requesterKey },
+      {
+        $pull: { friendRequests: { userKey: requesterKey } },
+        $addToSet: { friends: { userKey: requester.userKey, name: requester.name, email: requester.email, photo: requester.photo } },
+      }
+    );
+
+    const refreshed = await CommunityUser.findById(currentUser._id);
+    return res.status(200).json({
+      message: "Friend request accepted.",
+      profile: await serializeProfile(refreshed),
+    });
+  } catch (error) {
+    console.error("Unable to accept friend request:", error);
+    return res.status(500).json({ message: "Unable to accept friend request right now." });
+  }
+});
+
 router.get("/feed", authMiddleware, async (req, res) => {
   try {
     const page = Math.max(parseInt(req.query.page) || 1, 1);
     const limit = 20;
-    const totalCount = await PublicPost.countDocuments();
+    const totalCount = await PublicPost.estimatedDocumentCount();
     const posts = await PublicPost.find()
       .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
@@ -194,12 +247,18 @@ router.get("/feed", authMiddleware, async (req, res) => {
 });
 
 router.post("/posts", authMiddleware, async (req, res) => {
-  const { user, text, media = [] } = req.body;
+  const { text, media = [] } = req.body;
+  let reservedQuotaKey = null;
 
   try {
-    const profile = await ensureCommunityUser(user);
+    const profile = await ensureCommunityUser({
+      uid: req.user.uid,
+      email: req.user.email,
+      name: req.user.name,
+      photo: req.user.picture || req.user.photo || "",
+    });
     const friendsCount = profile.friends.length;
-    const dailyPostLimit = getPostingLimit(friendsCount);
+    const dailyPostLimit = getDailyPostingLimit(friendsCount);
     const todayPosts = await countTodayPosts(profile.userKey);
 
     if (dailyPostLimit === 0) {
@@ -230,6 +289,22 @@ router.post("/posts", authMiddleware, async (req, res) => {
           }))
       : [];
 
+    if (dailyPostLimit !== Infinity) {
+      const quotaKey = `public-post:${profile.userKey}:${getISTDateKey()}`;
+      const reservation = await reserveUsage({
+        key: quotaKey,
+        limit: dailyPostLimit,
+        initialCount: todayPosts,
+        expiresAt: getEndOfISTDayUTC(),
+      });
+      if (reservation.limitReached) {
+        return res.status(429).json({
+          message: `You have reached your daily posting limit of ${dailyPostLimit}.`,
+        });
+      }
+      reservedQuotaKey = quotaKey;
+    }
+
     const post = await PublicPost.create({
       author: {
         userKey: profile.userKey,
@@ -240,6 +315,9 @@ router.post("/posts", authMiddleware, async (req, res) => {
       text: String(text || "").trim(),
       media: sanitizedMedia,
     });
+    // The quota represents a posting action. Once persisted it must not be
+    // released merely because a later response-enrichment query fails.
+    reservedQuotaKey = null;
 
     const serializedProfile = await serializeProfile(profile);
 
@@ -249,6 +327,7 @@ router.post("/posts", authMiddleware, async (req, res) => {
       profile: serializedProfile,
     });
   } catch (error) {
+    if (reservedQuotaKey) await releaseUsage({ key: reservedQuotaKey }).catch(() => null);
     console.error("Unable to create post:", error);
     return res.status(500).json({
       message: "Unable to create the post right now.",
@@ -256,29 +335,63 @@ router.post("/posts", authMiddleware, async (req, res) => {
   }
 });
 
-router.post("/posts/:id/like", authMiddleware, async (req, res) => {
+router.delete("/posts/:id", authMiddleware, async (req, res) => {
   const { id } = req.params;
 
   try {
-    const profile = await ensureCommunityUser(req.body.user);
+    const profile = await ensureCommunityUser({
+      uid: req.user.uid,
+      email: req.user.email,
+      name: req.user.name,
+      photo: req.user.picture || req.user.photo || "",
+    });
     const post = await PublicPost.findById(id);
 
     if (!post) {
       return res.status(404).json({ message: "Post not found." });
     }
 
-    const likeIndex = post.likes.findIndex((entry) => entry === profile.userKey);
-
-    if (likeIndex >= 0) {
-      post.likes.splice(likeIndex, 1);
-    } else {
-      post.likes.push(profile.userKey);
+    if (post.author.userKey !== profile.userKey) {
+      return res.status(403).json({ message: "You are not authorized to delete this post." });
     }
 
-    await post.save();
+    await PublicPost.findByIdAndDelete(id);
+
+    return res.status(200).json({ message: "Post deleted successfully." });
+  } catch (error) {
+    console.error("Unable to delete post:", error);
+    return res.status(500).json({ message: "Unable to delete the post right now." });
+  }
+});
+
+router.post("/posts/:id/like", authMiddleware, async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const profile = await ensureCommunityUser({
+      uid: req.user.uid,
+      email: req.user.email,
+      name: req.user.name,
+      photo: req.user.picture || req.user.photo || "",
+    });
+    let removed = true;
+    let post = await PublicPost.findOneAndUpdate(
+      { _id: id, likes: profile.userKey },
+      { $pull: { likes: profile.userKey } },
+      { new: true }
+    );
+    if (!post) {
+      removed = false;
+      post = await PublicPost.findByIdAndUpdate(
+        id,
+        { $addToSet: { likes: profile.userKey } },
+        { new: true }
+      );
+    }
+    if (!post) return res.status(404).json({ message: "Post not found." });
 
     return res.status(200).json({
-      message: likeIndex >= 0 ? "Like removed." : "Post liked.",
+      message: removed ? "Like removed." : "Post liked.",
       post,
     });
   } catch (error) {
@@ -300,24 +413,30 @@ router.post("/posts/:id/comment", authMiddleware, async (req, res) => {
       });
     }
 
-    const profile = await ensureCommunityUser(req.body.user);
-    const post = await PublicPost.findById(id);
-
-    if (!post) {
-      return res.status(404).json({ message: "Post not found." });
-    }
-
-    post.comments.push({
-      author: {
-        userKey: profile.userKey,
-        name: profile.name,
-        email: profile.email,
-        photo: profile.photo,
-      },
-      text,
+    const profile = await ensureCommunityUser({
+      uid: req.user.uid,
+      email: req.user.email,
+      name: req.user.name,
+      photo: req.user.picture || req.user.photo || "",
     });
-
-    await post.save();
+    const post = await PublicPost.findByIdAndUpdate(
+      id,
+      {
+        $push: {
+          comments: {
+            author: {
+              userKey: profile.userKey,
+              name: profile.name,
+              email: profile.email,
+              photo: profile.photo,
+            },
+            text,
+          },
+        },
+      },
+      { new: true, runValidators: true }
+    );
+    if (!post) return res.status(404).json({ message: "Post not found." });
 
     return res.status(201).json({
       message: "Comment added successfully.",
@@ -331,18 +450,56 @@ router.post("/posts/:id/comment", authMiddleware, async (req, res) => {
   }
 });
 
-router.post("/posts/:id/share", authMiddleware, async (req, res) => {
-  const { id } = req.params;
+router.delete("/posts/:postId/comment/:commentId", authMiddleware, async (req, res) => {
+  const { postId, commentId } = req.params;
 
   try {
-    const post = await PublicPost.findById(id);
+    const profile = await ensureCommunityUser({
+      uid: req.user.uid,
+      email: req.user.email,
+      name: req.user.name,
+      photo: req.user.picture || req.user.photo || "",
+    });
 
+    const post = await PublicPost.findById(postId);
     if (!post) {
       return res.status(404).json({ message: "Post not found." });
     }
 
-    post.sharesCount += 1;
+    const comment = post.comments.id(commentId);
+    if (!comment) {
+      return res.status(404).json({ message: "Comment not found." });
+    }
+
+    if (comment.author.userKey !== profile.userKey && post.author.userKey !== profile.userKey) {
+      return res.status(403).json({ message: "You are not authorized to delete this comment." });
+    }
+
+    comment.deleteOne();
     await post.save();
+
+    return res.status(200).json({
+      message: "Comment deleted successfully.",
+      post,
+    });
+  } catch (error) {
+    console.error("Unable to delete comment:", error);
+    return res.status(500).json({
+      message: "Unable to delete the comment right now.",
+    });
+  }
+});
+
+router.post("/posts/:id/share", authMiddleware, async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const post = await PublicPost.findByIdAndUpdate(
+      id,
+      { $inc: { sharesCount: 1 } },
+      { new: true }
+    );
+    if (!post) return res.status(404).json({ message: "Post not found." });
 
     return res.status(200).json({
       message: "Post shared successfully.",
@@ -389,33 +546,17 @@ router.post("/upload-media", authMiddleware, async (req, res) => {
       return res.status(413).json({ message: "File too large. Max 8 MB per upload." });
     }
 
-    const filename = `media_${Date.now()}_${Math.random().toString(36).slice(2)}${ext}`;
+    const filename = `media_${Date.now()}_${Math.random().toString(36).slice(2)}`;
     let downloadUrl = "";
 
     try {
-      if (admin.getApps().length > 0) {
-        const { getStorage } = require("firebase-admin/storage");
-        const bucket = getStorage().bucket(
-          process.env.FIREBASE_STORAGE_BUCKET || `${process.env.FIREBASE_PROJECT_ID}.appspot.com`
-        );
-        const file = bucket.file(`media/${filename}`);
-        const token = crypto.randomUUID();
-        const contentType = isImage ? "image/" + ext.slice(1) : "video/" + ext.slice(1);
-        
-        await file.save(buffer, {
-          metadata: {
-            contentType,
-            metadata: {
-              firebaseStorageDownloadTokens: token
-            }
-          }
-        });
-        downloadUrl = `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodeURIComponent(file.name)}?alt=media&token=${token}`;
-      } else {
-        throw new Error("Firebase Admin app is not initialized.");
-      }
+      const uploadResult = await cloudinary.uploader.upload(base64, {
+        resource_type: "auto",
+        public_id: `public-space/${filename}`,
+      });
+      downloadUrl = uploadResult.secure_url;
     } catch (storageError) {
-      console.error("Firebase Storage upload failed:", storageError);
+      console.error("Cloudinary upload failed:", storageError);
       
       if (process.env.NODE_ENV !== "production") {
         console.warn("Development mode: Falling back to local storage for media.");
@@ -425,15 +566,15 @@ router.post("/upload-media", authMiddleware, async (req, res) => {
           fs.mkdirSync(mediaDir, { recursive: true });
         }
 
-        const localPath = path.join(mediaDir, filename);
+        const localPath = path.join(mediaDir, filename + ext);
         fs.writeFileSync(localPath, buffer);
 
         const backendUrl = process.env.BACKEND_URL || `${req.protocol}://${req.get("host")}`;
-        downloadUrl = `${backendUrl}/media/${filename}`;
+        downloadUrl = `${backendUrl}/media/${filename}${ext}`;
         console.log(`Local fallback media URL: ${downloadUrl}`);
       } else {
         return res.status(500).json({
-          message: `Media upload failed: ${storageError.message}`
+          message: `Media upload failed: ${storageError.message || JSON.stringify(storageError)}`
         });
       }
     }

@@ -1,5 +1,7 @@
 const nodemailer = require("nodemailer");
 const https = require("https");
+const developmentPreview = (field, value) =>
+  process.env.NODE_ENV === "production" ? {} : { [field]: value };
 
 const postJson = (url, headers, body) => {
   return new Promise((resolve, reject) => {
@@ -115,12 +117,10 @@ const sendOtpEmail = async ({ to, otp, browser, deviceType, operatingSystem }) =
   ].join("\n");
 
   if (!process.env.RESEND_API_KEY && !hasSmtpConfig()) {
-    console.warn(
-      `SMTP/Resend not configured. OTP for ${to}: ${otp}. Configure SMTP_* or RESEND_API_KEY env vars to send real emails.`
-    );
+    console.warn(`SMTP/Resend not configured. OTP for ${to} was not delivered.`);
     return {
       delivered: false,
-      developmentOtpPreview: otp,
+      ...developmentPreview("developmentOtpPreview", otp),
     };
   }
 
@@ -133,10 +133,9 @@ const sendOtpEmail = async ({ to, otp, browser, deviceType, operatingSystem }) =
     return { delivered: true };
   } catch (err) {
     console.error(`Email error when sending login OTP to ${to}:`, err.message);
-    console.warn(`[FALLBACK] Email delivery failed. OTP for ${to}: ${otp}`);
     return {
       delivered: false,
-      developmentOtpPreview: otp,
+      ...developmentPreview("developmentOtpPreview", otp),
     };
   }
 };
@@ -203,7 +202,7 @@ const sendPasswordEmail = async ({ to, newPassword }) => {
     );
     return {
       delivered: false,
-      developmentPasswordPreview: newPassword,
+      ...developmentPreview("developmentPasswordPreview", newPassword),
     };
   }
 
@@ -216,10 +215,9 @@ const sendPasswordEmail = async ({ to, newPassword }) => {
     return { delivered: true };
   } catch (err) {
     console.error(`Email error when resetting password for ${to}:`, err.message);
-    console.warn(`[FALLBACK] Email delivery failed. Password for ${to}: ${newPassword}`);
     return {
       delivered: false,
-      developmentPasswordPreview: newPassword,
+      ...developmentPreview("developmentPasswordPreview", newPassword),
     };
   }
 };
@@ -240,12 +238,10 @@ const sendResumeOtpEmail = async ({ to, otp }) => {
   ].join("\n");
 
   if (!process.env.RESEND_API_KEY && !hasSmtpConfig()) {
-    console.warn(
-      `SMTP/Resend not configured. Resume OTP for ${to}: ${otp}.`
-    );
+    console.warn(`SMTP/Resend not configured. Resume OTP for ${to} was not delivered.`);
     return {
       delivered: false,
-      developmentOtpPreview: otp,
+      ...developmentPreview("developmentOtpPreview", otp),
     };
   }
 
@@ -258,11 +254,37 @@ const sendResumeOtpEmail = async ({ to, otp }) => {
     return { delivered: true };
   } catch (err) {
     console.error(`Email error when sending resume OTP to ${to}:`, err.message);
-    console.warn(`[FALLBACK] Email delivery failed. Resume OTP for ${to}: ${otp}`);
     return {
       delivered: false,
-      developmentOtpPreview: otp,
+      ...developmentPreview("developmentOtpPreview", otp),
     };
+  }
+};
+
+const sendUserPasswordEmail = async ({ to, newPassword }) => {
+  const text = [
+    "Hello,",
+    "",
+    "Your InternArea password has been reset.",
+    `Your new temporary password is: ${newPassword}`,
+    "",
+    "Please sign in and change it as soon as possible.",
+    "If you did not request this reset, contact InternArea support immediately.",
+  ].join("\n");
+
+  if (!process.env.RESEND_API_KEY && !hasSmtpConfig()) {
+    return process.env.NODE_ENV === "production"
+      ? { delivered: false }
+      : { delivered: false, developmentPasswordPreview: newPassword };
+  }
+  try {
+    await sendMailHelper({ to, subject: "Your InternArea password reset", text });
+    return { delivered: true };
+  } catch (error) {
+    console.error(`User password email failed for ${to}:`, error.message);
+    return process.env.NODE_ENV === "production"
+      ? { delivered: false }
+      : { delivered: false, developmentPasswordPreview: newPassword };
   }
 };
 
@@ -272,4 +294,5 @@ module.exports = {
   sendInvoiceEmail,
   sendPasswordEmail,
   sendResumeOtpEmail,
+  sendUserPasswordEmail,
 };

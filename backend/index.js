@@ -6,6 +6,7 @@ const path = require("path");
 const { connect } = require("./db");
 const router = require("./Routes/index");
 const port = process.env.PORT || 5000;
+const { startInvoiceWorker } = require("./utils/invoiceDelivery");
 
 const envOrigins = process.env.ALLOWED_ORIGINS
   ? process.env.ALLOWED_ORIGINS.split(",").map(o => o.trim())
@@ -62,6 +63,7 @@ app.get("/", (req, res) => {
 });
 app.use("/api", router);
 connect();
+startInvoiceWorker();
 
 app.listen(port, () => {
   console.log(`Server is running on the port ${port}`);

@@ -97,4 +97,6 @@ const PublicPostSchema = new mongoose.Schema(
   }
 );
 
+PublicPostSchema.index({ createdAt: -1 });
+
 module.exports = mongoose.model("PublicPost", PublicPostSchema);

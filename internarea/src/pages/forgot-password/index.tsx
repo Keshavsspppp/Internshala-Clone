@@ -5,15 +5,22 @@ import { Mail, Phone, RefreshCcw } from "lucide-react";
 import { toast } from "react-toastify";
 import { useTranslation } from "next-i18next/pages";
 import { serverSideTranslations } from "next-i18next/pages/serverSideTranslations";
+import { useRouter } from "next/router";
 
 type ResetMethod = "email" | "phone";
 
 const ForgotPasswordPage = () => {
   const { t } = useTranslation("common");
+  const router = useRouter();
+  const [accountType, setAccountType] = useState<"student" | "admin">("student");
   const [resetMethod, setResetMethod] = useState<ResetMethod>("email");
   const [identifier, setIdentifier] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+
+  React.useEffect(() => {
+    if (router.query.account === "admin") setAccountType("admin");
+  }, [router.query.account]);
 
   const placeholder = useMemo(() => {
     return resetMethod === "email"
@@ -33,7 +40,7 @@ const ForgotPasswordPage = () => {
       setIsSubmitting(true);
       setIsSuccess(false);
       const response = await axios.post(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/admin/forgot-password`,
+        `${process.env.NEXT_PUBLIC_API_URL}/api/${accountType === "admin" ? "admin" : "security"}/forgot-password`,
         {
           identifier: identifier.trim(),
         }
@@ -63,7 +70,20 @@ const ForgotPasswordPage = () => {
           </p>
         </div>
 
-        <div className="mt-8 grid grid-cols-2 gap-3">
+        <div className="mt-6 grid grid-cols-2 gap-3">
+          {(["student", "admin"] as const).map((type) => (
+            <button
+              key={type}
+              type="button"
+              onClick={() => { setAccountType(type); setIsSuccess(false); }}
+              className={`rounded-xl border px-4 py-2.5 text-sm font-semibold ${accountType === type ? "border-blue-600 bg-blue-50 text-blue-700" : "border-gray-200 text-gray-600"}`}
+            >
+              {type === "student" ? t("studentAccount") : t("adminAccount")}
+            </button>
+          ))}
+        </div>
+
+        <div className="mt-4 grid grid-cols-2 gap-3">
           <button
             type="button"
             onClick={() => setResetMethod("email")}
@@ -129,8 +149,8 @@ const ForgotPasswordPage = () => {
         ) : null}
 
         <div className="mt-6 text-center text-sm text-gray-600">
-          <Link href="/adminlogin" className="font-medium text-blue-600 hover:text-blue-700">
-            {t("backToAdminLogin")}
+          <Link href={accountType === "admin" ? "/adminlogin" : "/"} className="font-medium text-blue-600 hover:text-blue-700">
+            {accountType === "admin" ? t("backToAdminLogin") : t("backToHome")}
           </Link>
         </div>
       </div>

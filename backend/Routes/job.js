@@ -1,10 +1,13 @@
 const express = require("express");
 const router = express.Router();
 const Job = require("../Model/Job");
-const authMiddleware = require("../middleware/auth");
+const { verifiedAuthMiddleware: authMiddleware } = require("../middleware/auth");
 
 // POST / — Create new job
 router.post("/", authMiddleware, async (req, res) => {
+  if (req.user.role !== "admin") {
+    return res.status(403).json({ error: "Administrator access is required." });
+  }
   try {
     const jobData = new Job({
       title: req.body.title,
@@ -31,7 +34,7 @@ router.post("/", authMiddleware, async (req, res) => {
 // GET / — Fetch all jobs
 router.get("/", async (req, res) => {
   try {
-    const data = await Job.find();
+    const data = await Job.find().lean();
     return res.status(200).json(data);
   } catch (error) {
     console.error("Error fetching jobs:", error);

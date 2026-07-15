@@ -4,6 +4,7 @@ export type VerifiedUserSession = {
   email: string;
   photo?: string | null;
   phoneNumber?: string | null;
+  sessionToken: string;
 };
 
 export type PendingOtpSession = {

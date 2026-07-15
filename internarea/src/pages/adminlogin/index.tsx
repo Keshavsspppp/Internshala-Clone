@@ -107,7 +107,7 @@ const AdminLoginPage = () => {
             </div>
             <div className="flex justify-end">
               <Link
-                href="/forgot-password"
+                href="/forgot-password?account=admin"
                 className="text-sm font-medium text-blue-600 hover:text-blue-700"
               >
                 {t("forgotPasswordLink", "Forgot password?")}

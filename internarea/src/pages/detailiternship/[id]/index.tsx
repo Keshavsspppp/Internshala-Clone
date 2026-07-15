@@ -119,6 +119,7 @@ const InternshipDetailPage = () => {
     }
     try {
       const applicationdata={
+        applicationType:"internship",
         category:internshipData.category,
         company:internshipData.company,
         coverLetter:coverLetter,
@@ -129,9 +130,9 @@ const InternshipDetailPage = () => {
       await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/api/application`,applicationdata)
       toast.success("Application submit successfully")
       router.push('/internship')
-    } catch (error) {
+    } catch (error: any) {
       console.error(error)
-      toast.error("Failed to submit application")
+      toast.error(error.response?.data?.message || error.response?.data?.error || "Failed to submit application")
     }
   }
   return (

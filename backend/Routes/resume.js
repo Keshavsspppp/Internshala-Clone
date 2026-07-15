@@ -8,10 +8,28 @@ const admin = require("firebase-admin");
 const UserSubscription = require("../Model/UserSubscription");
 const UserSecurity = require("../Model/UserSecurity");
 const ResumeOtp = require("../Model/ResumeOtp");
+const PaymentTransaction = require("../Model/PaymentTransaction");
 const { sendResumeOtpEmail } = require("../utils/mailer");
-const authMiddleware = require("../middleware/auth");
+const { verifiedAuthMiddleware: authMiddleware } = require("../middleware/auth");
+const { claimPayment, completePayment, failPayment } = require("../utils/paymentTransactions");
 
 const router = express.Router();
+const RESUME_PRICE_PAISE = 5000;
+const PREMIUM_RESUME_PLANS = ["Silver", "Gold"];
+
+const signaturesMatch = (generated, received) => {
+  const generatedBuffer = Buffer.from(String(generated), "utf8");
+  const receivedBuffer = Buffer.from(String(received), "utf8");
+  return generatedBuffer.length === receivedBuffer.length &&
+    crypto.timingSafeEqual(generatedBuffer, receivedBuffer);
+};
+
+const findActivePremiumSubscription = (userEmail) =>
+  UserSubscription.findOne({
+    userEmail,
+    planName: { $in: PREMIUM_RESUME_PLANS },
+    expiresAt: { $gt: new Date() },
+  });
 
 if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
   throw new Error("RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET are required");
@@ -37,8 +55,22 @@ const esc = (s) => String(s || "")
   .replace(/"/g, "&quot;")
   .replace(/'/g, "&#39;");
 
+const RESUME_PDF_COPY = {
+  en: { contact: "Contact", email: "Email", phone: "Phone", location: "Location", skills: "Skills", hobbies: "Hobbies", verified: "Verified {{plan}} Member of InternArea", summary: "Profile Summary", experience: "Experience", education: "Education", score: "Score" },
+  es: { contact: "Contacto", email: "Correo", phone: "Teléfono", location: "Ubicación", skills: "Habilidades", hobbies: "Aficiones", verified: "Miembro {{plan}} verificado de InternArea", summary: "Resumen profesional", experience: "Experiencia", education: "Educación", score: "Calificación" },
+  hi: { contact: "संपर्क", email: "ईमेल", phone: "फ़ोन", location: "स्थान", skills: "कौशल", hobbies: "रुचियाँ", verified: "InternArea के सत्यापित {{plan}} सदस्य", summary: "प्रोफ़ाइल सारांश", experience: "अनुभव", education: "शिक्षा", score: "अंक" },
+  pt: { contact: "Contato", email: "E-mail", phone: "Telefone", location: "Localização", skills: "Competências", hobbies: "Interesses", verified: "Membro {{plan}} verificado do InternArea", summary: "Resumo profissional", experience: "Experiência", education: "Educação", score: "Nota" },
+  zh: { contact: "联系方式", email: "电子邮箱", phone: "电话", location: "所在地", skills: "技能", hobbies: "爱好", verified: "InternArea 已验证 {{plan}} 会员", summary: "个人简介", experience: "工作经历", education: "教育经历", score: "成绩" },
+  fr: { contact: "Coordonnées", email: "E-mail", phone: "Téléphone", location: "Localisation", skills: "Compétences", hobbies: "Loisirs", verified: "Membre {{plan}} vérifié d’InternArea", summary: "Profil professionnel", experience: "Expérience", education: "Formation", score: "Résultat" },
+};
+
 // Helper function to generate PDF from resumeData
-const generateResumePdf = async (resumeData) => {
+const generateResumePdf = async (resumeData, planName) => {
+  const locale = Object.prototype.hasOwnProperty.call(RESUME_PDF_COPY, resumeData.locale)
+    ? resumeData.locale
+    : "en";
+  const copy = RESUME_PDF_COPY[locale];
+  const verifiedMember = copy.verified.replace("{{plan}}", esc(planName));
   const safePhotoUrl = /^https?:\/\//.test(resumeData.photoUrl) ? resumeData.photoUrl : "";
   const htmlContent = `
 <!DOCTYPE html>
@@ -166,20 +198,20 @@ const generateResumePdf = async (resumeData) => {
     <div class="left-col">
       ${safePhotoUrl ? `<img class="avatar" src="${esc(safePhotoUrl)}" alt="Avatar">` : ''}
       
-      <div class="left-title">Contact</div>
-      <div class="contact-item"><strong>Email:</strong><br>${esc(resumeData.email)}</div>
-      <div class="contact-item"><strong>Phone:</strong><br>${esc(resumeData.phone)}</div>
-      <div class="contact-item"><strong>Location:</strong><br>${esc(resumeData.location)}</div>
+      <div class="left-title">${copy.contact}</div>
+      <div class="contact-item"><strong>${copy.email}:</strong><br>${esc(resumeData.email)}</div>
+      <div class="contact-item"><strong>${copy.phone}:</strong><br>${esc(resumeData.phone)}</div>
+      <div class="contact-item"><strong>${copy.location}:</strong><br>${esc(resumeData.location)}</div>
       
       ${resumeData.personalInfo?.skills ? `
-        <div class="left-title">Skills</div>
+        <div class="left-title">${copy.skills}</div>
         <div style="margin-top: 10px;">
           ${resumeData.personalInfo.skills.split(',').map(s => `<span class="skill-tag">${esc(s.trim())}</span>`).join('')}
         </div>
       ` : ''}
 
       ${resumeData.personalInfo?.hobbies ? `
-        <div class="left-title">Hobbies</div>
+        <div class="left-title">${copy.hobbies}</div>
         <div style="font-size: 12px; color: #cbd5e1; line-height: 1.6;">
           ${esc(resumeData.personalInfo.hobbies)}
         </div>
@@ -187,15 +219,15 @@ const generateResumePdf = async (resumeData) => {
     </div>
     <div class="right-col">
       <h1 class="name-title">${esc(resumeData.name)}</h1>
-      <div style="font-size: 12px; color: #64748b; margin-bottom: 25px;">Verified Gold Member of InternArea</div>
+      <div style="font-size: 12px; color: #64748b; margin-bottom: 25px;">${verifiedMember}</div>
       
       ${resumeData.personalInfo?.about ? `
-        <div class="right-title" style="margin-top: 0;">Profile Summary</div>
+        <div class="right-title" style="margin-top: 0;">${copy.summary}</div>
         <div class="summary-text">${esc(resumeData.personalInfo.about)}</div>
       ` : ''}
       
       ${resumeData.experience && resumeData.experience.length > 0 ? `
-        <div class="right-title">Experience</div>
+        <div class="right-title">${copy.experience}</div>
         ${resumeData.experience.map(exp => `
           <div style="margin-bottom: 15px;">
             <div style="display: flex; justify-content: space-between; align-items: baseline;">
@@ -209,7 +241,7 @@ const generateResumePdf = async (resumeData) => {
       ` : ''}
       
       ${resumeData.qualifications && resumeData.qualifications.length > 0 ? `
-        <div class="right-title">Education</div>
+        <div class="right-title">${copy.education}</div>
         ${resumeData.qualifications.map(edu => `
           <div style="margin-bottom: 15px;">
             <div style="display: flex; justify-content: space-between; align-items: baseline;">
@@ -217,7 +249,7 @@ const generateResumePdf = async (resumeData) => {
               <span class="item-date">${esc(edu.year)}</span>
             </div>
             <div class="item-subtitle">${esc(edu.school)}</div>
-            <p class="item-desc" style="margin-bottom: 0;">Score: ${esc(edu.percentage || edu.cgpa)}</p>
+            <p class="item-desc" style="margin-bottom: 0;">${copy.score}: ${esc(edu.percentage || edu.cgpa)}</p>
           </div>
         `).join('')}
       ` : ''}
@@ -230,11 +262,13 @@ const generateResumePdf = async (resumeData) => {
   const browser = await puppeteer.launch({
     args: ["--no-sandbox", "--disable-setuid-sandbox"]
   });
-  const page = await browser.newPage();
-  await page.setContent(htmlContent, { waitUntil: "networkidle0" });
-  const pdfBuffer = await page.pdf({ format: "A4", printBackground: true });
-  await browser.close();
-  return pdfBuffer;
+  try {
+    const page = await browser.newPage();
+    await page.setContent(htmlContent, { waitUntil: "networkidle0" });
+    return await page.pdf({ format: "A4", printBackground: true });
+  } finally {
+    await browser.close();
+  }
 };
 
 // 1. POST /send-otp — Generate OTP and email it (Gold Users Only)
@@ -245,15 +279,11 @@ router.post("/send-otp", authMiddleware, async (req, res) => {
   }
 
   try {
-    // Check if user is on Gold plan
-    const sub = await UserSubscription.findOne({
-      userEmail,
-      planName: "Gold",
-      expiresAt: { $gt: new Date() }
-    });
+    // Check if user is on a premium plan (Silver or Gold)
+    const sub = await findActivePremiumSubscription(userEmail);
 
     if (!sub) {
-      return res.status(403).json({ message: "Only users on a Gold subscription plan can build a resume." });
+      return res.status(403).json({ message: "Only users on a premium subscription plan (Silver or Gold) can build a resume." });
     }
 
     const otp = String(crypto.randomInt(100000, 1000000));
@@ -262,7 +292,7 @@ router.post("/send-otp", authMiddleware, async (req, res) => {
 
     await ResumeOtp.findOneAndUpdate(
       { email: userEmail },
-      { otpHash, expiresAt, verified: false, verifiedAt: null },
+      { otpHash, expiresAt, verified: false, verifiedAt: null, failedAttempts: 0 },
       { upsert: true, new: true }
     );
 
@@ -270,6 +300,11 @@ router.post("/send-otp", authMiddleware, async (req, res) => {
       to: userEmail,
       otp
     });
+
+    if (!emailResult.delivered && !emailResult.developmentOtpPreview) {
+      await ResumeOtp.deleteOne({ email: userEmail });
+      return res.status(503).json({ message: "The verification email could not be delivered. Please try again later." });
+    }
 
     return res.status(200).json({
       message: "OTP sent to your registered email.",
@@ -335,6 +370,11 @@ router.post("/create-order", authMiddleware, async (req, res) => {
   }
 
   try {
+    const sub = await findActivePremiumSubscription(userEmail);
+    if (!sub) {
+      return res.status(403).json({ message: "An active Silver or Gold plan is required." });
+    }
+
     const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000);
     const otpRecord = await ResumeOtp.findOne({
       email: userEmail,
@@ -347,13 +387,17 @@ router.post("/create-order", authMiddleware, async (req, res) => {
     }
 
     const options = {
-      amount: 5000, // ₹50 in paise
+      amount: RESUME_PRICE_PAISE, // ₹50 in paise
       currency: "INR",
-      receipt: `receipt_resume_${Date.now()}`
+      receipt: `receipt_resume_${Date.now()}`,
+      notes: {
+        purpose: "resume",
+        userEmail,
+      },
     };
 
     const order = await razorpay.orders.create(options);
-    return res.status(200).json(order);
+    return res.status(200).json({ ...order, keyId: process.env.RAZORPAY_KEY_ID });
   } catch (error) {
     console.error("Error in /create-order:", error);
     return res.status(500).json({ message: "Unable to initiate payment transaction." });
@@ -374,6 +418,7 @@ router.post("/verify-payment", authMiddleware, async (req, res) => {
     return res.status(400).json({ message: "Missing required payment or resume details." });
   }
 
+  let claimedTransaction = null;
   try {
     // Verify payment signature
     const generatedSignature = crypto
@@ -381,15 +426,79 @@ router.post("/verify-payment", authMiddleware, async (req, res) => {
       .update(razorpay_order_id + "|" + razorpay_payment_id)
       .digest("hex");
 
-    if (generatedSignature !== razorpay_signature) {
+    if (!signaturesMatch(generatedSignature, razorpay_signature)) {
       return res.status(400).json({
         success: false,
         message: "Payment verification failed. Invalid signature."
       });
     }
 
+    const [order, payment] = await Promise.all([
+      razorpay.orders.fetch(razorpay_order_id),
+      razorpay.payments.fetch(razorpay_payment_id),
+    ]);
+    const orderEmail = String(order.notes?.userEmail || "").trim().toLowerCase();
+    if (
+      order.notes?.purpose !== "resume" ||
+      orderEmail !== userEmail ||
+      Number(order.amount) !== RESUME_PRICE_PAISE ||
+      order.currency !== "INR" ||
+      payment.order_id !== razorpay_order_id ||
+      Number(payment.amount) !== RESUME_PRICE_PAISE ||
+      payment.currency !== "INR" ||
+      payment.status !== "captured"
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Payment details do not match the ₹50 resume order."
+      });
+    }
+
+    // A successfully completed payment remains safely replayable after its
+    // one-time OTP has been consumed (for example, after a lost HTTP response).
+    const completedTransaction = await PaymentTransaction.findOne({
+      paymentId: razorpay_payment_id,
+      orderId: razorpay_order_id,
+      purpose: "resume",
+      userEmail,
+      amountPaise: RESUME_PRICE_PAISE,
+      status: "complete",
+    });
+    if (completedTransaction) {
+      return res.status(200).json(completedTransaction.result);
+    }
+
+    const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000);
+    const [sub, otpRecord] = await Promise.all([
+      findActivePremiumSubscription(userEmail),
+      ResumeOtp.findOne({
+        email: userEmail,
+        verified: true,
+        verifiedAt: { $gte: fifteenMinutesAgo },
+      }),
+    ]);
+    if (!sub || !otpRecord) {
+      return res.status(403).json({
+        message: "A current premium plan and recent OTP verification are required."
+      });
+    }
+
+    const claim = await claimPayment({
+      paymentId: razorpay_payment_id,
+      orderId: razorpay_order_id,
+      purpose: "resume",
+      userEmail,
+      amountPaise: RESUME_PRICE_PAISE,
+    });
+    if (claim.complete) return res.status(200).json(claim.transaction.result);
+    if (claim.conflict) return res.status(409).json({ success: false, message: "Payment was already used for another purchase." });
+    if (claim.processing) return res.status(409).json({ success: false, message: "Payment is already being processed." });
+    claimedTransaction = claim.transaction;
+
+    resumeData.email = userEmail;
+
     // Generate PDF
-    const pdfBuffer = await generateResumePdf(resumeData);
+    const pdfBuffer = await generateResumePdf(resumeData, sub.planName);
 
     // Upload to Firebase Storage with Fallback
     let downloadUrl = "";
@@ -437,9 +546,7 @@ router.post("/verify-payment", authMiddleware, async (req, res) => {
         downloadUrl = `${req.protocol}://${req.get("host")}/resumes/${filename}`;
         console.log(`Local fallback resume URL: ${downloadUrl}`);
       } else {
-        return res.status(500).json({
-          message: `Resume generated but storage failed. Please try again. Firebase Storage upload failed: ${storageError.message}`
-        });
+        throw new Error(`Resume storage failed: ${storageError.message}`);
       }
     }
 
@@ -449,15 +556,22 @@ router.post("/verify-payment", authMiddleware, async (req, res) => {
       { resumeUrl: downloadUrl }
     );
 
-    // Invalidate the OTP session
-    await ResumeOtp.deleteOne({ email: userEmail });
-
-    return res.status(200).json({
+    const result = {
       success: true,
       message: "Payment verified and resume PDF generated successfully.",
       resumeUrl: downloadUrl
+    };
+    await completePayment(claimedTransaction, result);
+    claimedTransaction = null;
+
+    // Payment completion is the durable boundary. OTP cleanup is best-effort
+    // so a transient database error cannot turn a completed purchase into a retry loop.
+    await ResumeOtp.deleteOne({ email: userEmail }).catch((error) => {
+      console.error("Unable to clean up completed resume OTP:", error);
     });
+    return res.status(200).json(result);
   } catch (error) {
+    await failPayment(claimedTransaction, error);
     console.error("Error in /verify-payment & PDF generation:", error);
     return res.status(500).json({ message: "Unable to process payment verification or generate resume." });
   }

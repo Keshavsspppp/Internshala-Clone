@@ -163,6 +163,7 @@ const JobDetailPage = () => {
     }
     try {
       const applicationdata = {
+        applicationType: "job",
         category: jobdata.category,
         company: jobdata.company,
         coverLetter: coverLetter,
@@ -176,9 +177,9 @@ const JobDetailPage = () => {
       );
       toast.success("Application submit successfully");
       router.push("/job");
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
-      toast.error("Failed to submit application");
+      toast.error(error.response?.data?.message || error.response?.data?.error || "Failed to submit application");
     }
   };
   return (

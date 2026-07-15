@@ -1,6 +1,8 @@
 import { Facebook, Twitter, Instagram } from "lucide-react";
+import { useTranslation } from "next-i18next/pages";
 
 export default function Footer() {
+  const { t } = useTranslation("common");
   return (
     <footer className="bg-slate-900 text-slate-300 py-16 border-t border-slate-800 mt-auto">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -15,7 +17,7 @@ export default function Footer() {
 
         <div className="flex flex-col md:flex-row justify-between items-center gap-6">
           <div className="flex items-center gap-2 border border-slate-700 px-4 py-2 rounded-xl cursor-pointer hover:bg-slate-800 hover:border-slate-500 transition-all duration-200">
-            <span className="text-sm font-semibold">Get Mobile App</span>
+            <span className="text-sm font-semibold">{t("getMobileApp")}</span>
           </div>
           
           <div className="flex space-x-6">
@@ -24,7 +26,7 @@ export default function Footer() {
             <Instagram className="w-5 h-5 hover:text-pink-500 cursor-pointer transition-colors duration-200" />
           </div>
           
-          <p className="text-xs text-slate-500">© Copyright 2026 InternArea. All Rights Reserved.</p>
+          <p className="text-xs text-slate-500">{t("copyrightText")}</p>
         </div>
       </div>
     </footer>

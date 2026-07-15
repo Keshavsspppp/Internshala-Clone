@@ -1,16 +1,85 @@
 const express = require("express");
 const crypto = require("crypto");
 const UserSecurity = require("../Model/UserSecurity");
-const { sendOtpEmail } = require("../utils/mailer");
+const { sendOtpEmail, sendUserPasswordEmail } = require("../utils/mailer");
 const authMiddleware = require("../middleware/auth");
+const { verifiedAuthMiddleware } = require("../middleware/auth");
 const UAParser = require("ua-parser-js");
+const jwt = require("jsonwebtoken");
+const { isWithinISTHourWindow } = require("../utils/istTime");
+const { issueUserSession } = require("../utils/userSession");
+const { getAuth } = require("firebase-admin/auth");
+const UserPasswordReset = require("../Model/UserPasswordReset");
+const { getISTDateKey } = require("../utils/istTime");
 
 const router = express.Router();
+
+const getLanguageTokenSecret = () => {
+  const secret = process.env.LANGUAGE_JWT_SECRET || process.env.ADMIN_JWT_SECRET;
+  if (!secret) {
+    throw new Error("LANGUAGE_JWT_SECRET or ADMIN_JWT_SECRET is required");
+  }
+  return secret;
+};
 
 const LOGIN_HISTORY_LIMIT = 20;
 const OTP_EXPIRY_MINUTES = 10;
 
 const normalizeEmail = (email = "") => String(email).trim().toLowerCase();
+const generateLetterPassword = (length = 12) => {
+  const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+  return Array.from({ length }, () => letters[crypto.randomInt(0, letters.length)]).join("");
+};
+
+router.post("/forgot-password", async (req, res) => {
+  const identifier = String(req.body.identifier || "").trim();
+  if (!identifier) return res.status(400).json({ message: "Registered email or phone number is required." });
+
+  try {
+    let firebaseUser;
+    if (identifier.includes("@")) {
+      firebaseUser = await getAuth().getUserByEmail(normalizeEmail(identifier));
+    } else {
+      const digits = identifier.replace(/\D/g, "");
+      const phone = identifier.startsWith("+") ? `+${digits}` : digits.length === 10 ? `+91${digits}` : `+${digits}`;
+      firebaseUser = await getAuth().getUserByPhoneNumber(phone);
+    }
+    if (!firebaseUser.email) {
+      return res.status(400).json({ message: "This account has no registered email for secure delivery." });
+    }
+
+    const resetDateKey = getISTDateKey();
+    try {
+      await UserPasswordReset.findOneAndUpdate(
+        { uid: firebaseUser.uid, resetDateKey: { $ne: resetDateKey } },
+        { $set: { email: firebaseUser.email, resetDateKey, lastResetAt: new Date() }, $setOnInsert: { uid: firebaseUser.uid } },
+        { upsert: true, new: true }
+      );
+    } catch (error) {
+      if (error?.code === 11000) {
+        return res.status(429).json({ message: "You can use this option only once per day." });
+      }
+      throw error;
+    }
+
+    const newPassword = generateLetterPassword();
+    await getAuth().updateUser(firebaseUser.uid, { password: newPassword });
+    const emailResult = await sendUserPasswordEmail({ to: firebaseUser.email, newPassword });
+    if (!emailResult.delivered && !emailResult.developmentPasswordPreview) {
+      return res.status(503).json({ message: "Password changed, but delivery failed. Contact support immediately." });
+    }
+    return res.status(200).json({
+      message: "Password sent to your registered email.",
+      developmentPasswordPreview: emailResult.developmentPasswordPreview || null,
+    });
+  } catch (error) {
+    if (error?.code === "auth/user-not-found") {
+      return res.status(404).json({ message: "No account was found with that email or phone number." });
+    }
+    console.error("User forgot password failed:", error);
+    return res.status(500).json({ message: "Unable to reset the password right now." });
+  }
+});
 
 const normalizeUser = (user = {}) => ({
   uid: String(user.uid || "").trim(),
@@ -29,14 +98,8 @@ const getClientIp = (req) => {
   return String(req.socket?.remoteAddress || "");
 };
 
-const getISTHour = () => {
-  const nowUTC = Date.now() + new Date().getTimezoneOffset() * 60000;
-  return new Date(nowUTC + 3600000 * 5.5).getHours();
-};
-
 const isMobileAllowedRightNow = () => {
-  const h = getISTHour();
-  return h >= 10 && h < 13;
+  return isWithinISTHourWindow(10, 13);
 };
 
 const createOtpHash = (otp) => {
@@ -96,8 +159,13 @@ const serializeProfile = (userSecurity) => ({
   loginHistory: (userSecurity.loginHistory || []).map(serializeHistoryItem),
 });
 
-router.post("/login-attempt", async (req, res) => {
-  const normalizedUser = normalizeUser(req.body.user);
+router.post("/login-attempt", authMiddleware, async (req, res) => {
+  const normalizedUser = normalizeUser({
+    uid: req.user.uid,
+    name: req.user.name,
+    email: req.user.email,
+    photo: req.user.picture || req.user.photo || "",
+  });
   const loginEnvironment = req.body.loginEnvironment || {};
 
   if (!normalizedUser.uid || !normalizedUser.email) {
@@ -109,7 +177,19 @@ router.post("/login-attempt", async (req, res) => {
   const ua = new UAParser(req.headers["user-agent"]).getResult();
   const browser = ua.browser.name || "Unknown";
   const operatingSystem = ua.os.name || "Unknown";
-  const deviceType = ua.device.type === "mobile" ? "mobile" : "desktop";
+  const serverMobileTypes = new Set(["mobile", "tablet"]);
+  const serverSaysMobile = serverMobileTypes.has(ua.device.type);
+  const reportedDeviceType = ["desktop", "laptop", "mobile"].includes(
+    loginEnvironment.deviceType
+  )
+    ? loginEnvironment.deviceType
+    : "desktop";
+  const deviceType =
+    serverSaysMobile || reportedDeviceType === "mobile"
+      ? "mobile"
+      : reportedDeviceType === "laptop"
+        ? "laptop"
+        : "desktop";
   const ipAddress = getClientIp(req);
   const attemptId = createAttemptId();
 
@@ -174,6 +254,17 @@ router.post("/login-attempt", async (req, res) => {
         deviceType,
         operatingSystem,
       });
+      const emailDeliveryFailed =
+        !emailResult.delivered && !emailResult.developmentOtpPreview;
+      if (emailDeliveryFailed) {
+        const failedAttemptIndex = findAttemptIndex(userSecurity, attemptId);
+        if (failedAttemptIndex >= 0) {
+          userSecurity.loginHistory[failedAttemptIndex].status = "blocked";
+          userSecurity.loginHistory[failedAttemptIndex].reason =
+            "Login OTP email could not be delivered.";
+        }
+        userSecurity.pendingOtp = {};
+      }
 
       try {
         await userSecurity.save();
@@ -186,14 +277,25 @@ router.post("/login-attempt", async (req, res) => {
             const attemptExists = (latestDoc.loginHistory || []).some(
               h => h.attemptId === attemptId
             );
-            if (!attemptExists && userSecurity.loginHistory && userSecurity.loginHistory.length > 0) {
-              latestDoc.loginHistory.push(userSecurity.loginHistory[userSecurity.loginHistory.length - 1]);
+            const currentAttempt = (userSecurity.loginHistory || []).find(
+              (historyItem) => historyItem.attemptId === attemptId
+            );
+            if (!attemptExists && currentAttempt) {
+              latestDoc.loginHistory.unshift(currentAttempt);
+              latestDoc.loginHistory = latestDoc.loginHistory.slice(0, LOGIN_HISTORY_LIMIT);
             }
             await latestDoc.save();
           }
         } else {
           throw saveError;
         }
+      }
+
+      if (emailDeliveryFailed) {
+        return res.status(503).json({
+          status: "blocked",
+          message: "The login verification email could not be delivered. Please try again later.",
+        });
       }
 
       return res.status(200).json({
@@ -222,6 +324,7 @@ router.post("/login-attempt", async (req, res) => {
     return res.status(200).json({
       status: "allowed",
       attemptId,
+      sessionToken: issueUserSession({ ...normalizedUser, attemptId }),
       message: "Login allowed.",
     });
   } catch (error) {
@@ -232,8 +335,13 @@ router.post("/login-attempt", async (req, res) => {
   }
 });
 
-router.post("/verify-otp", async (req, res) => {
-  const normalizedUser = normalizeUser(req.body.user);
+router.post("/verify-otp", authMiddleware, async (req, res) => {
+  const normalizedUser = normalizeUser({
+    uid: req.user.uid,
+    name: req.user.name,
+    email: req.user.email,
+    photo: req.user.picture || req.user.photo || "",
+  });
   const attemptId = String(req.body.attemptId || "").trim();
   const otp = String(req.body.otp || "").trim();
 
@@ -314,6 +422,7 @@ router.post("/verify-otp", async (req, res) => {
 
     return res.status(200).json({
       status: "verified",
+      sessionToken: issueUserSession({ ...normalizedUser, attemptId }),
       message: "OTP verified successfully.",
     });
   } catch (error) {
@@ -324,9 +433,9 @@ router.post("/verify-otp", async (req, res) => {
   }
 });
 
-router.get("/profile", async (req, res) => {
-  const uid = String(req.query.uid || "").trim();
-  const email = normalizeEmail(req.query.email);
+router.get("/profile", verifiedAuthMiddleware, async (req, res) => {
+  const uid = String(req.user.uid || "").trim();
+  const email = normalizeEmail(req.user.email);
 
   if (!uid && !email) {
     return res.status(400).json({
@@ -362,7 +471,7 @@ router.get("/profile", async (req, res) => {
 });
 
 // POST /send-lang-otp — Send verification OTP for language switching
-router.post("/send-lang-otp", authMiddleware, async (req, res) => {
+router.post("/send-lang-otp", verifiedAuthMiddleware, async (req, res) => {
   const email = req.user.email?.toLowerCase();
   if (!email) {
     return res.status(400).json({ message: "Email is required." });
@@ -388,6 +497,11 @@ router.post("/send-lang-otp", authMiddleware, async (req, res) => {
       operatingSystem: "System"
     });
 
+    if (!emailResult.delivered && !emailResult.developmentOtpPreview) {
+      await LangOtp.deleteOne({ email });
+      return res.status(503).json({ message: "The language verification email could not be delivered." });
+    }
+
     return res.status(200).json({
       message: "OTP sent successfully to your email.",
       developmentOtpPreview: emailResult.developmentOtpPreview || null
@@ -399,7 +513,7 @@ router.post("/send-lang-otp", authMiddleware, async (req, res) => {
 });
 
 // POST /verify-lang-otp — Verify language switcher OTP
-router.post("/verify-lang-otp", authMiddleware, async (req, res) => {
+router.post("/verify-lang-otp", verifiedAuthMiddleware, async (req, res) => {
   const email = req.user.email?.toLowerCase();
   const { otp } = req.body;
 
@@ -432,18 +546,54 @@ router.post("/verify-lang-otp", authMiddleware, async (req, res) => {
       return res.status(400).json({ message: "Invalid OTP. Please try again." });
     }
 
-    record.verified = true;
-    record.verifiedAt = new Date();
-    await record.save();
+    const languageAccessToken = jwt.sign(
+      {
+        uid: req.user.uid,
+        email,
+        locale: "fr",
+        purpose: "language-access",
+      },
+      getLanguageTokenSecret(),
+      { expiresIn: "24h" }
+    );
+    await record.deleteOne();
 
     return res.status(200).json({
       success: true,
+      languageAccessToken,
       message: "OTP verified successfully. Language change authorized."
     });
   } catch (error) {
     console.error("Error verifying language OTP:", error);
     return res.status(500).json({ message: "Unable to verify OTP right now." });
   }
+});
+
+router.post("/validate-lang-access", verifiedAuthMiddleware, async (req, res) => {
+  const token = String(req.body.languageAccessToken || "").trim();
+  if (!token) {
+    return res.status(401).json({ valid: false, message: "French verification is required." });
+  }
+
+  try {
+    const payload = jwt.verify(token, getLanguageTokenSecret());
+    const valid =
+      payload.purpose === "language-access" &&
+      payload.locale === "fr" &&
+      payload.uid === req.user.uid &&
+      String(payload.email || "").toLowerCase() === String(req.user.email || "").toLowerCase();
+
+    if (!valid) {
+      return res.status(403).json({ valid: false, message: "French verification is not valid for this user." });
+    }
+    return res.status(200).json({ valid: true });
+  } catch (error) {
+    return res.status(401).json({ valid: false, message: "French verification has expired." });
+  }
+});
+
+router.get("/session", verifiedAuthMiddleware, (req, res) => {
+  return res.status(200).json({ valid: true, expiresAt: req.verifiedSession.exp * 1000 });
 });
 
 module.exports = router;

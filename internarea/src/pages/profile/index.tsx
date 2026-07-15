@@ -96,7 +96,7 @@ const ProfilePage = () => {
       const order = orderResponse.data;
 
       const options = {
-        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || "rzp_test_T3tbDnwaj6pkS2",
+        key: order.keyId,
         amount: order.amount,
         currency: order.currency,
         name: "InternArea Subscription",
@@ -163,6 +163,7 @@ const ProfilePage = () => {
 
       try {
         setIsLoading(true);
+        const token = await auth.currentUser?.getIdToken();
         const response = await axios.get(
           `${process.env.NEXT_PUBLIC_API_URL}/api/security/profile`,
           {
@@ -170,6 +171,7 @@ const ProfilePage = () => {
               uid: user.uid,
               email: user.email,
             },
+            headers: { Authorization: `Bearer ${token}` },
           }
         );
         setSecurityProfile(response.data);
@@ -351,8 +353,8 @@ const ProfilePage = () => {
                     {subscription.planName === "Free" && (
                       <div className="mt-4 p-4 border border-blue-100 bg-blue-50/30 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                         <div>
-                          <p className="text-xs font-bold text-slate-800">Ready to boost your applications?</p>
-                          <p className="text-[10px] text-slate-500 font-medium">Upgrade to premium and build resumes, post without limits, and more.</p>
+                          <p className="text-xs font-bold text-slate-800">{t("readyToBoost")}</p>
+                          <p className="text-[10px] text-slate-500 font-medium">{t("upgradeBenefits")}</p>
                         </div>
                         <button
                           onClick={() => setIsUpgradeModalOpen(true)}
@@ -507,8 +509,8 @@ const ProfilePage = () => {
             <div className="mt-6 space-y-3.5">
               <div className="border border-slate-100 rounded-xl p-4 bg-slate-50 flex items-center justify-between">
                 <div>
-                  <h3 className="font-extrabold text-sm text-slate-700">Bronze Tier</h3>
-                  <p className="text-[10px] text-slate-500 font-medium">3 applications per month</p>
+                  <h3 className="font-extrabold text-sm text-slate-700">{t("bronzeTier")}</h3>
+                  <p className="text-[10px] text-slate-500 font-medium">{t("threeApplicationsMonth")}</p>
                 </div>
                 <button
                   disabled={isPaying}
@@ -521,8 +523,8 @@ const ProfilePage = () => {
 
               <div className="border border-slate-100 rounded-xl p-4 bg-slate-50 flex items-center justify-between">
                 <div>
-                  <h3 className="font-extrabold text-sm text-slate-700">Silver Tier</h3>
-                  <p className="text-[10px] text-slate-500 font-medium">5 applications per month</p>
+                  <h3 className="font-extrabold text-sm text-slate-700">{t("silverTier")}</h3>
+                  <p className="text-[10px] text-slate-500 font-medium">{t("fiveApplicationsMonth")}</p>
                 </div>
                 <button
                   disabled={isPaying}
@@ -539,9 +541,9 @@ const ProfilePage = () => {
                 </span>
                 <div>
                   <h3 className="font-extrabold text-sm text-slate-700 flex items-center gap-1">
-                    Gold Tier ⭐
+                    {t("goldTier")} ⭐
                   </h3>
-                  <p className="text-[10px] text-slate-500 font-medium">Unlimited applications + Resume Builder</p>
+                  <p className="text-[10px] text-slate-500 font-medium">{t("unlimitedResumeBuilder")}</p>
                 </div>
                 <button
                   disabled={isPaying}
@@ -570,4 +572,3 @@ export const getStaticProps = async ({ locale }: { locale: string }) => ({
 });
 
 export default ProfilePage;
-

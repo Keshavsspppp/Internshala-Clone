@@ -13,16 +13,12 @@ import {
   Upload,
   CheckCircle2,
   Loader2,
+  Trash2,
 } from "lucide-react";
 import { useSelector } from "react-redux";
 import { selectuser } from "@/Feature/Userslice";
 import { toast } from "react-toastify";
-import { storage } from "@/firebase/firebase";
-import {
-  ref,
-  uploadBytesResumable,
-  getDownloadURL,
-} from "firebase/storage";
+import { auth } from "@/firebase/firebase";
 import { useTranslation } from "next-i18next/pages";
 import { serverSideTranslations } from "next-i18next/pages/serverSideTranslations";
 
@@ -39,6 +35,7 @@ type CommunityProfile = {
   email: string;
   photo?: string;
   friends: CommunityFriend[];
+  friendRequests: CommunityFriend[];
   friendsCount: number;
   todayPosts: number;
   remainingPosts: number | null;
@@ -135,6 +132,20 @@ const PublicSpacePage = () => {
     };
   }, [user]);
 
+  const getAuthHeaders = async () => {
+    let currentUser = auth.currentUser;
+    if (!currentUser) {
+      currentUser = await new Promise((resolve) => {
+        const unsubscribe = auth.onAuthStateChanged((user) => {
+          unsubscribe();
+          resolve(user);
+        });
+      });
+    }
+    const token = await currentUser?.getIdToken();
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  };
+
   const loadCommunityData = async () => {
     if (!communityUser) {
       setLoading(false);
@@ -142,16 +153,17 @@ const PublicSpacePage = () => {
     }
     try {
       setLoading(true);
+      const headers = await getAuthHeaders();
       const [profileRes, feedRes] = await Promise.all([
         axios.post(`${process.env.NEXT_PUBLIC_API_URL}/api/community/profile`, {
           user: communityUser,
-        }),
-        axios.get(`${process.env.NEXT_PUBLIC_API_URL}/api/community/feed?page=1`),
+        }, { headers }),
+        axios.get(`${process.env.NEXT_PUBLIC_API_URL}/api/community/feed?page=1`, { headers }),
       ]);
       setProfile(profileRes.data);
-      setFeed(feedRes.data);
+      setFeed(feedRes.data.posts);
       setFeedPage(1);
-      setHasMoreFeed(feedRes.data.length === 20);
+      setHasMoreFeed(feedRes.data.hasMore);
     } catch (error) {
       console.error(error);
       toast.error("Unable to load the Public Space right now.");
@@ -164,13 +176,15 @@ const PublicSpacePage = () => {
     if (loadingMore || !hasMoreFeed) return;
     try {
       setLoadingMore(true);
+      const headers = await getAuthHeaders();
       const nextPage = feedPage + 1;
       const res = await axios.get(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/community/feed?page=${nextPage}`
+        `${process.env.NEXT_PUBLIC_API_URL}/api/community/feed?page=${nextPage}`,
+        { headers }
       );
-      setFeed((prev) => [...prev, ...res.data]);
+      setFeed((prev) => [...prev, ...res.data.posts]);
       setFeedPage(nextPage);
-      setHasMoreFeed(res.data.length === 20);
+      setHasMoreFeed(res.data.hasMore);
     } catch (error) {
       console.error(error);
       toast.error("Unable to load more posts.");
@@ -203,62 +217,40 @@ const PublicSpacePage = () => {
 
       setUploadingFiles((prev) => [...prev, uploadItem]);
 
-      // Push to Firebase Storage
-      const storagePath = `public-space/${communityUser?.uid || "anon"}/${id}-${file.name}`;
-      const storageRef = ref(storage, storagePath);
-      const task = uploadBytesResumable(storageRef, file);
-
-      task.on(
-        "state_changed",
-        (snapshot) => {
-          const pct = Math.round(
-            (snapshot.bytesTransferred / snapshot.totalBytes) * 100
-          );
+      // Convert to base64 and upload to backend (Cloudinary)
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onloadend = async () => {
+        const base64data = reader.result as string;
+        try {
+          // Simulate progress
           setUploadingFiles((prev) =>
-            prev.map((u) => (u.id === id ? { ...u, progress: pct } : u))
+            prev.map((u) => (u.id === id ? { ...u, progress: 50 } : u))
           );
-        },
-        async () => {
-          console.warn(`Firebase upload failed for ${file.name}. Trying local server fallback...`);
-          
-          const reader = new FileReader();
-          reader.readAsDataURL(file);
-          reader.onloadend = async () => {
-            const base64data = reader.result as string;
-            try {
-              const uploadRes = await axios.post(
-                `${process.env.NEXT_PUBLIC_API_URL}/api/community/upload-media`, 
-                { name: file.name, base64: base64data }
-              );
-              setUploadingFiles((prev) =>
-                prev.map((u) =>
-                  u.id === id
-                    ? { ...u, status: "done", url: uploadRes.data.url, progress: 100 }
-                    : u
-                )
-              );
-              toast.info(`${file.name} uploaded successfully.`);
-            } catch (err) {
-              setUploadingFiles((prev) =>
-                prev.map((u) =>
-                  u.id === id ? { ...u, status: "error", progress: 0 } : u
-                )
-              );
-              toast.error(`Failed to upload ${file.name}.`);
-            }
-          };
-        },
-        async () => {
-          const downloadUrl = await getDownloadURL(task.snapshot.ref);
+          const headers = await getAuthHeaders();
+          const uploadRes = await axios.post(
+            `${process.env.NEXT_PUBLIC_API_URL}/api/community/upload-media`,
+            { name: file.name, base64: base64data },
+            { headers }
+          );
+
           setUploadingFiles((prev) =>
             prev.map((u) =>
               u.id === id
-                ? { ...u, status: "done", url: downloadUrl, progress: 100 }
+                ? { ...u, status: "done", url: uploadRes.data.url, progress: 100 }
                 : u
             )
           );
+          toast.info(`${file.name} uploaded successfully.`);
+        } catch (err) {
+          setUploadingFiles((prev) =>
+            prev.map((u) =>
+              u.id === id ? { ...u, status: "error", progress: 0 } : u
+            )
+          );
+          toast.error(`Failed to upload ${file.name}.`);
         }
-      );
+      };
     });
 
     // Reset file input
@@ -284,13 +276,15 @@ const PublicSpacePage = () => {
 
     try {
       setIsPosting(true);
+      const headers = await getAuthHeaders();
       const media = uploadingFiles
         .filter((u) => u.status === "done")
         .map((u) => ({ type: u.type, url: u.url, name: u.name }));
 
       const response = await axios.post(
         `${process.env.NEXT_PUBLIC_API_URL}/api/community/posts`,
-        { user: communityUser, text: composerText, media }
+        { user: communityUser, text: composerText, media },
+        { headers }
       );
 
       setFeed((prev) => [response.data.post, ...prev]);
@@ -311,18 +305,20 @@ const PublicSpacePage = () => {
       toast.error("Please sign in before adding friends.");
       return;
     }
-    if (!friendForm.name.trim() || !friendForm.email.trim()) {
-      toast.error("Friend name and email are required.");
+    if (!friendForm.email.trim()) {
+      toast.error("Friend email is required.");
       return;
     }
     try {
       setIsAddingFriend(true);
+      const headers = await getAuthHeaders();
       const response = await axios.post(
         `${process.env.NEXT_PUBLIC_API_URL}/api/community/friends`,
         {
           user: communityUser,
-          friend: { name: friendForm.name.trim(), email: friendForm.email.trim() },
-        }
+          friend: { email: friendForm.email.trim() },
+        },
+        { headers }
       );
       setProfile(response.data.profile);
       setFriendForm({ name: "", email: "" });
@@ -334,15 +330,32 @@ const PublicSpacePage = () => {
     }
   };
 
+  const handleAcceptFriend = async (requesterKey: string) => {
+    try {
+      const headers = await getAuthHeaders();
+      const response = await axios.post(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/community/friends/requests/${encodeURIComponent(requesterKey)}/accept`,
+        {},
+        { headers }
+      );
+      setProfile(response.data.profile);
+      toast.success(response.data.message || "Friend request accepted.");
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || "Unable to accept friend request.");
+    }
+  };
+
   const handleLike = async (postId: string) => {
     if (!communityUser) {
       toast.error("Please sign in before liking a post.");
       return;
     }
     try {
+      const headers = await getAuthHeaders();
       const response = await axios.post(
         `${process.env.NEXT_PUBLIC_API_URL}/api/community/posts/${postId}/like`,
-        { user: communityUser }
+        { user: communityUser },
+        { headers }
       );
       setFeed((prev) =>
         prev.map((post) => (post._id === postId ? response.data.post : post))
@@ -363,9 +376,11 @@ const PublicSpacePage = () => {
       return;
     }
     try {
+      const headers = await getAuthHeaders();
       const response = await axios.post(
         `${process.env.NEXT_PUBLIC_API_URL}/api/community/posts/${postId}/comment`,
-        { user: communityUser, text }
+        { user: communityUser, text },
+        { headers }
       );
       setFeed((prev) =>
         prev.map((post) => (post._id === postId ? response.data.post : post))
@@ -378,8 +393,11 @@ const PublicSpacePage = () => {
 
   const handleShare = async (postId: string) => {
     try {
+      const headers = await getAuthHeaders();
       const response = await axios.post(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/community/posts/${postId}/share`
+        `${process.env.NEXT_PUBLIC_API_URL}/api/community/posts/${postId}/share`,
+        {},
+        { headers }
       );
       setFeed((prev) =>
         prev.map((post) => (post._id === postId ? response.data.post : post))
@@ -390,6 +408,40 @@ const PublicSpacePage = () => {
       toast.success("Post shared. Public Space link copied.");
     } catch (error: any) {
       toast.error(error?.response?.data?.message || "Unable to share this post.");
+    }
+  };
+
+  const handleDelete = async (postId: string) => {
+    if (!window.confirm("Are you sure you want to delete this post?")) return;
+
+    try {
+      const headers = await getAuthHeaders();
+      await axios.delete(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/community/posts/${postId}`,
+        { headers }
+      );
+      setFeed((prev) => prev.filter((post) => post._id !== postId));
+      toast.success("Post deleted successfully.");
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || "Unable to delete this post.");
+    }
+  };
+
+  const handleDeleteComment = async (postId: string, commentId: string) => {
+    if (!window.confirm("Are you sure you want to delete this comment?")) return;
+
+    try {
+      const headers = await getAuthHeaders();
+      const response = await axios.delete(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/community/posts/${postId}/comment/${commentId}`,
+        { headers }
+      );
+      setFeed((prev) =>
+        prev.map((post) => (post._id === postId ? response.data.post : post))
+      );
+      toast.success("Comment deleted successfully.");
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || "Unable to delete this comment.");
     }
   };
 
@@ -542,15 +594,6 @@ const PublicSpacePage = () => {
               </div>
               <form onSubmit={handleAddFriend} className="space-y-3">
                 <input
-                  type="text"
-                  value={friendForm.name}
-                  onChange={(e) =>
-                    setFriendForm((prev) => ({ ...prev, name: e.target.value }))
-                  }
-                  placeholder={t("friendNamePlaceholder")}
-                  className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-xs text-slate-700 placeholder-slate-400 outline-none focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500 transition-all font-medium"
-                />
-                <input
                   type="email"
                   value={friendForm.email}
                   onChange={(e) =>
@@ -568,6 +611,29 @@ const PublicSpacePage = () => {
                 </button>
               </form>
             </div>
+
+            {profile?.friendRequests?.length ? (
+              <div className="rounded-2xl border border-blue-100 bg-blue-50/40 p-6 shadow-sm">
+                <h2 className="mb-3 text-sm font-bold text-slate-800">{t("friendRequests")}</h2>
+                <div className="space-y-2">
+                  {profile.friendRequests.map((request) => (
+                    <div key={request.userKey} className="flex items-center justify-between gap-3 rounded-xl bg-white p-3">
+                      <div className="min-w-0">
+                        <p className="truncate text-xs font-bold text-slate-700">{request.name}</p>
+                        <p className="truncate text-[10px] text-slate-400">{request.email}</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleAcceptFriend(request.userKey)}
+                        className="rounded-lg bg-blue-600 px-3 py-1.5 text-[10px] font-bold text-white hover:bg-blue-700"
+                      >
+                        {t("accept")}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
 
             {/* Friends list */}
             <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
@@ -768,24 +834,37 @@ const PublicSpacePage = () => {
                       className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm hover:shadow-md hover:shadow-slate-50 transition-all duration-300"
                     >
                       {/* Author */}
-                      <div className="flex items-center gap-3">
-                        {post.author.photo ? (
-                          <img
-                            src={post.author.photo}
-                            alt={post.author.name}
-                            className="h-11 w-11 rounded-full object-cover border border-slate-100 shadow-sm"
-                          />
-                        ) : (
-                          <AvatarPlaceholder name={post.author.name} />
-                        )}
-                        <div>
-                          <h3 className="font-bold text-slate-800 text-sm font-heading">
-                            {post.author.name}
-                          </h3>
-                          <p className="text-[10px] text-slate-400 font-bold mt-0.5">
-                            {new Date(post.createdAt).toLocaleString()}
-                          </p>
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-center gap-3">
+                          {post.author.photo ? (
+                            <img
+                              src={post.author.photo}
+                              alt={post.author.name}
+                              className="h-11 w-11 rounded-full object-cover border border-slate-100 shadow-sm"
+                            />
+                          ) : (
+                            <AvatarPlaceholder name={post.author.name} />
+                          )}
+                          <div>
+                            <h3 className="font-bold text-slate-800 text-sm font-heading">
+                              {post.author.name}
+                            </h3>
+                            <p className="text-[10px] text-slate-400 font-bold mt-0.5">
+                              {new Date(post.createdAt).toLocaleString()}
+                            </p>
+                          </div>
                         </div>
+
+                        {/* Delete Button */}
+                        {communityUser?.email?.toLowerCase() === post.author.email?.toLowerCase() && (
+                          <button
+                            onClick={() => handleDelete(post._id)}
+                            className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors"
+                            title="Delete Post"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        )}
                       </div>
 
                       {post.text && (
@@ -825,11 +904,10 @@ const PublicSpacePage = () => {
                         <button
                           type="button"
                           onClick={() => handleLike(post._id)}
-                          className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 font-bold transition-colors ${
-                            likedByCurrentUser
-                              ? "bg-rose-50 text-rose-600 border border-rose-100"
-                              : "bg-slate-50 hover:bg-slate-100 text-slate-650 border border-slate-100"
-                          }`}
+                          className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 font-bold transition-colors ${likedByCurrentUser
+                            ? "bg-rose-50 text-rose-600 border border-rose-100"
+                            : "bg-slate-50 hover:bg-slate-100 text-slate-650 border border-slate-100"
+                            }`}
                         >
                           <Heart
                             className={`h-3.5 w-3.5 ${likedByCurrentUser ? "fill-rose-500" : ""}`}
@@ -905,14 +983,26 @@ const PublicSpacePage = () => {
                                   <span className="font-bold text-slate-800 text-[11px] font-heading">
                                     {comment.author.name}
                                   </span>
-                                  <span className="ml-auto text-[9px] text-slate-400 font-medium">
-                                    {new Date(comment.createdAt).toLocaleDateString("en-US", {
-                                      month: "short",
-                                      day: "numeric",
-                                      hour: "2-digit",
-                                      minute: "2-digit",
-                                    })}
-                                  </span>
+                                  <div className="ml-auto flex items-center gap-2">
+                                    <span className="text-[9px] text-slate-400 font-medium">
+                                      {new Date(comment.createdAt).toLocaleDateString("en-US", {
+                                        month: "short",
+                                        day: "numeric",
+                                        hour: "2-digit",
+                                        minute: "2-digit",
+                                      })}
+                                    </span>
+                                    {(communityUser?.email?.toLowerCase() === comment.author.email?.toLowerCase() ||
+                                      communityUser?.email?.toLowerCase() === post.author.email?.toLowerCase()) && (
+                                        <button
+                                          onClick={() => handleDeleteComment(post._id, comment._id)}
+                                          className="text-slate-300 hover:text-red-500 hover:bg-red-50 p-1 rounded transition-colors"
+                                          title="Delete Comment"
+                                        >
+                                          <X className="h-3 w-3" />
+                                        </button>
+                                      )}
+                                  </div>
                                 </div>
                                 <p className="text-xs text-slate-700 font-medium leading-relaxed pl-8">
                                   {comment.text}
@@ -966,4 +1056,3 @@ export const getStaticProps = async ({ locale }: { locale: string }) => ({
 });
 
 export default PublicSpacePage;
-
